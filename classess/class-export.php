@@ -1,7 +1,5 @@
 <?php
 
-add_filter( 'http_request_host_is_external', '__return_true' );
-
 // phpcs:disable
 
 class Customify_Starter_Sites_Export {
@@ -11,7 +9,8 @@ class Customify_Starter_Sites_Export {
 		// add_filter( 'wp_get_attachment_url', array( $this, 'wp_get_attachment_url' ), 95, 2 );
 		add_filter( 'rss2_head', array( $this, 'export_remove_rss_title' ), 95 );
 		add_filter( 'the_content_export', array( $this, 'the_content_export' ), 999 );
-		if ( $_GET['from_customify'] == 'placeholder' ) {
+		$from_customify = isset( $_GET['from_customify'] ) ? sanitize_key( wp_unslash( $_GET['from_customify'] ) ) : '';
+		if ( 'placeholder' === $from_customify ) {
 			/**
 			 * @see export_wp
 			 */
@@ -81,7 +80,8 @@ class Customify_Starter_Sites_Export {
 		}
 
 		$file_name = $sitename . $builder . $date;
-		if ( $_GET['from_customify'] == 'placeholder' ) {
+		$from_customify = isset( $_GET['from_customify'] ) ? sanitize_key( wp_unslash( $_GET['from_customify'] ) ) : '';
+		if ( 'placeholder' === $from_customify ) {
 			$file_name .= '-placeholder';
         }
 		return $file_name;
@@ -695,6 +695,7 @@ class Customify_Starter_Sites_Export {
 // phpcs:enable
 
 function customify_starter_sites_export_wp( $args = array() ){
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Invoked from core export flow after capability check and export nonce (export.php).
 	if ( isset( $_GET['download'], $_GET['content'], $_GET['from_customify'] ) ) {
 		new Customify_Starter_Sites_Export( $args );
 	}

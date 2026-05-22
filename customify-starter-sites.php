@@ -5,9 +5,11 @@ Plugin URI: https://wpcustomify.com
 Description: Import free sites build with Customify theme.
 Author: pressmaximum
 Author URI: https://pressmaximum.com/customify
-Version: 0.0.11
+Version: 0.0.16
 Text Domain: customify-starter-sites
-License: GPL version 2 or later - http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+Domain Path: /languages
+License: GPL-2.0-or-later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
 define( 'CUSTOMIFY_STARTER_SITES_FILE',__FILE__ );
@@ -27,7 +29,6 @@ require dirname( __FILE__ ) . '/importer/class-wxr-importer.php';
 require dirname( __FILE__ ) . '/importer/class-wxr-import-info.php';
 require dirname( __FILE__ ) . '/importer/class-wxr-import-ui.php';
 
-require dirname( __FILE__ ) . '/classess/class-tgm.php';
 require dirname( __FILE__ ) . '/classess/class-plugin.php';
 require dirname( __FILE__ ) . '/classess/class-sites.php';
 require dirname( __FILE__ ) . '/classess/class-export.php';
@@ -53,7 +54,7 @@ function customify_starter_sites_plugin_activate( $plugin, $network_wide = false
 			admin_url( 'themes.php' )
 		);
 
-		wp_redirect( $url );
+		wp_safe_redirect( $url );
 		die();
 
 	}
@@ -64,8 +65,8 @@ if ( is_admin() ) {
 	function customify_starter_sites_admin_footer( $html ) {
 		if ( isset( $_REQUEST['dev'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$sc = get_current_screen();
-			if ( $sc->id == 'appearance_page_customify-sites' ) {
-				$html = '<a class="page-title-action" href="' . admin_url( 'export.php?content=all&download=true&from_customify=placeholder' ) . '">Export XML Placeholder</a> - <a class="page-title-action" href="' . admin_url( 'export.php?content=all&download=true&from_customify' ) . '">Export XML</a> - <a class="page-title-action" href="' . admin_url( 'admin-ajax.php?action=cs_export' ) . '">Export Config</a>';
+			if ( $sc->id == 'appearance_page_customify-starter-sites' ) {
+				$html = '<a class="page-title-action" href="' . esc_url( admin_url( 'export.php?content=all&download=true&from_customify=placeholder' ) ) . '">Export XML Placeholder</a> - <a class="page-title-action" href="' . esc_url( admin_url( 'export.php?content=all&download=true&from_customify' ) ) . '">Export XML</a> - <a class="page-title-action" href="' . esc_url( wp_nonce_url( admin_url( 'admin-ajax.php?action=cs_export' ), 'customify_starter_sites', 'nonce' ) ) . '">Export Config</a>';
 			}
 		}
 		return $html;

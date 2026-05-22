@@ -25,7 +25,13 @@ class Customify_Starter_Sites_Ajax {
 		add_action( 'wp_ajax_cs_export', array( $this, 'ajax_export' ) );
 	}
 
+	protected function verify_ajax_referer() {
+		check_ajax_referer( 'customify_starter_sites', 'nonce' );
+	}
+
 	function ajax_import__check() {
+		$this->verify_ajax_referer();
+		$this->user_can();
 		die( 'ajax_import__check' );
 	}
 
@@ -183,6 +189,13 @@ class Customify_Starter_Sites_Ajax {
 
 	function ajax_export() {
 
+		$this->verify_ajax_referer();
+		$this->user_can();
+
+		if ( ! function_exists( 'get_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
 		ob_start();
 		ob_end_clean();
 		ob_flush();
@@ -207,7 +220,7 @@ class Customify_Starter_Sites_Ajax {
 		$include_plugins = apply_filters(
 			'customify-sites/export_plugins/exclude',
 			array(
-				"customify-starter-sites"         => 1,
+				'customify-sites-library'         => 1,
 				'customify-sites-api'     => 1,
 				'customify-sites-listing' => 1,
 			)
@@ -286,12 +299,14 @@ class Customify_Starter_Sites_Ajax {
 
 	function user_can() {
 		if ( ! current_user_can( 'manage_options' ) ) {
+			status_header( 403 );
 			die( 'access_denied' );
 		}
 	}
 
 	function ajax_import_content() {
 
+		$this->verify_ajax_referer();
 		$this->user_can();
 
 		$import_ui = new Customify_Starter_Sites_WXR_Import_UI();
@@ -308,16 +323,21 @@ class Customify_Starter_Sites_Ajax {
 	}
 
 	function ajax_download_files() {
+		$this->verify_ajax_referer();
 		$this->user_can();
 
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Nonce verified in verify_ajax_referer() above.
 		// try to get files exists
 		$slug             = isset( $_REQUEST['site_slug'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['site_slug'] ) ) : '';
 		$builder          = isset( $_REQUEST['builder'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['builder'] ) ) : '';
+		$resources        = isset( $_REQUEST['resources'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_REQUEST['resources'] ) ) : array();
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
 		$placeholder_only = apply_filters( 'customify_import_placeholder_only', true );
 
 		update_option( 'customify_import_placeholder_only', $placeholder_only );
 
-		$resources = isset( $_REQUEST['resources'] ) ? wp_unslash( $_REQUEST['resources'] ) : array();
+
 		$resources = wp_parse_args(
 			$resources,
 			array(
@@ -444,11 +464,11 @@ class Customify_Starter_Sites_Ajax {
 			$return['summary']['user_count'] = count( $return['summary']['users'] );
 		}
 
-		$return['texts']['post_count']    = sprintf( _n( '%d post (including CPT)', '%d posts (including CPTs)', $return['summary']['post_count'], "customify-starter-sites", 'customify-sites' ), $return['summary']['post_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
-		$return['texts']['media_count']   = sprintf( _n( '%d media item', '%d media items', $return['summary']['media_count'], "customify-starter-sites", 'customify-sites' ), $return['summary']['media_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
-		$return['texts']['user_count']    = sprintf( _n( '%d user', '%d users', $return['summary']['user_count'], "customify-starter-sites", 'customify-sites' ), $return['summary']['user_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
-		$return['texts']['term_count']    = sprintf( _n( '%d term', '%d terms', $return['summary']['term_count'], "customify-starter-sites", 'customify-sites' ), $return['summary']['term_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
-		$return['texts']['comment_count'] = sprintf( _n( '%d comment', '%d comments', $return['summary']['comment_count'], "customify-starter-sites", 'customify-sites' ), $return['summary']['comment_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
+		$return['texts']['post_count']    = sprintf( _n( '%d post (including CPT)', '%d posts (including CPTs)', $return['summary']['post_count'], 'customify-starter-sites' ), $return['summary']['post_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
+		$return['texts']['media_count']   = sprintf( _n( '%d media item', '%d media items', $return['summary']['media_count'], 'customify-starter-sites' ), $return['summary']['media_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
+		$return['texts']['user_count']    = sprintf( _n( '%d user', '%d users', $return['summary']['user_count'], 'customify-starter-sites' ), $return['summary']['user_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
+		$return['texts']['term_count']    = sprintf( _n( '%d term', '%d terms', $return['summary']['term_count'], 'customify-starter-sites' ), $return['summary']['term_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
+		$return['texts']['comment_count'] = sprintf( _n( '%d comment', '%d comments', $return['summary']['comment_count'], 'customify-starter-sites' ), $return['summary']['comment_count'] ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment
 
 		if ( $return['json_id'] ) {
 			$options = $this->get_config_options( $return['json_id'] );
@@ -558,20 +578,13 @@ class Customify_Starter_Sites_Ajax {
 	}
 
 	function ajax_import_options() {
+		$this->verify_ajax_referer();
 		$this->user_can();
-		$id         = wp_unslash( (int) $_REQUEST['id'] );
-		$xml_id     = wp_unslash( (int) $_REQUEST['xml_id'] );
-		$file       = get_attached_file( $id );
-		$config_url = '';
-
-		$response      = wp_remote_get( $config_url );
-		$response_body = wp_remote_retrieve_body( $response );
-		if ( ! empty( $response_body ) ) {
-			$result = unserialize( $response_body );
-			if ( is_array( $result ) && ! is_wp_error( $result ) ) {
-
-			}
-		}
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Nonce verified in verify_ajax_referer() above.
+		$id     = isset( $_REQUEST['id'] ) ? absint( wp_unslash( $_REQUEST['id'] ) ) : 0;
+		$xml_id = isset( $_REQUEST['xml_id'] ) ? absint( wp_unslash( $_REQUEST['xml_id'] ) ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		$file       = $id ? get_attached_file( $id ) : false;
 
 		if ( $file ) {
 			$this->mapping = get_post_meta( $xml_id, '_wxr_importer_mapping', true );
@@ -725,7 +738,13 @@ class Customify_Starter_Sites_Ajax {
 		}
 
 		if ( ! empty( $file ) ) {
+			if ( ! self::is_safe_remote_url( $file ) ) {
+				return new WP_Error( 'invalid_url', __( 'Invalid image URL.', 'customify-starter-sites' ) );
+			}
 			preg_match( '/[^\?]+\.(jpe?g|jpe|gif|png)\b/i', $file, $matches );
+			if ( empty( $matches[0] ) ) {
+				return new WP_Error( 'invalid_file', __( 'Invalid image file.', 'customify-starter-sites' ) );
+			}
 			$file_array             = array();
 			$file_array['name']     = basename( $matches[0] );
 			$file_array['tmp_name'] = download_url( $file );
@@ -811,12 +830,73 @@ class Customify_Starter_Sites_Ajax {
 
 
 	/**
-	 * Download image form url
+	 * Reduce SSRF risk for server-side downloads (http/https only, block common private hosts).
 	 *
+	 * @param string $url Remote URL.
 	 * @return bool
 	 */
+	public static function is_safe_remote_url( $url ) {
+		if ( ! is_string( $url ) || '' === trim( $url ) ) {
+			return false;
+		}
+		$url = trim( $url );
+		if ( ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+			return false;
+		}
+		$parsed = wp_parse_url( $url );
+		if ( empty( $parsed['scheme'] ) || empty( $parsed['host'] ) ) {
+			return false;
+		}
+		$scheme = strtolower( $parsed['scheme'] );
+		if ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
+			return false;
+		}
+		$host = strtolower( $parsed['host'] );
+		if ( in_array( $host, array( 'localhost', '127.0.0.1', '0.0.0.0', '[::1]', '::1' ), true ) ) {
+			return false;
+		}
+		if ( preg_match( '/^(10\.|192\.168\.|169\.254\.|127\.)/', $host ) ) {
+			return false;
+		}
+		if ( preg_match( '/^172\.(1[6-9]|2[0-9]|3[0-1])\./', $host ) ) {
+			return false;
+		}
+		/**
+		 * Optional allowlist of hostnames for demo downloads. Subdomains of each entry are allowed.
+		 * Default empty: only scheme + private/loopback checks apply.
+		 *
+		 * @param string[] $hosts Hostnames.
+		 */
+		$allowed = apply_filters( 'customify_starter_sites_allowed_download_hosts', array() );
+		if ( ! empty( $allowed ) && is_array( $allowed ) ) {
+			$ok = false;
+			foreach ( $allowed as $allowed_host ) {
+				$allowed_host = strtolower( (string) $allowed_host );
+				if ( '' === $allowed_host ) {
+					continue;
+				}
+				if ( $host === $allowed_host ) {
+					$ok = true;
+					break;
+				}
+				$suffix = '.' . $allowed_host;
+				if ( strlen( $host ) > strlen( $suffix ) && substr( $host, -strlen( $suffix ) ) === $suffix ) {
+					$ok = true;
+					break;
+				}
+			}
+			if ( ! $ok ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	static function download_file( $url, $name = '', $save_attachment = true ) {
 		if ( ! $url || empty( $url ) ) {
+			return false;
+		}
+		if ( ! self::is_safe_remote_url( $url ) ) {
 			return false;
 		}
 		// These files need to be included as dependencies when on the front end.

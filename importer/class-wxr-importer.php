@@ -127,7 +127,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		}
 
 		if ( ! $status ) {
-			return new WP_Error( 'wxr_importer.cannot_parse', __( 'Could not open the file for parsing', "customify-starter-sites", 'customify-sites' ) );
+			return new WP_Error( 'wxr_importer.cannot_parse', __( 'Could not open the file for parsing', 'customify-starter-sites' ) );
 		}
 
 		return $reader;
@@ -163,7 +163,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 
 					if ( version_compare( $this->version, self::MAX_WXR_VERSION, '>' ) ) {
 						$this->logger->warning( sprintf(
-							__( 'This WXR file (version %s) is newer than the importer (version %s) and may not be supported. Please consider updating.',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
+							__( 'This WXR file (version %s) is newer than the importer (version %s) and may not be supported. Please consider updating.',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
 							$this->version,
 							self::MAX_WXR_VERSION
 						) );
@@ -279,7 +279,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 
 					if ( version_compare( $this->version, self::MAX_WXR_VERSION, '>' ) ) {
 						$this->logger->warning( sprintf(
-							__( 'This WXR file (version %s) is newer than the importer (version %s) and may not be supported. Please consider updating.',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
+							__( 'This WXR file (version %s) is newer than the importer (version %s) and may not be supported. Please consider updating.',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
 							$this->version,
 							self::MAX_WXR_VERSION
 						) );
@@ -352,7 +352,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 
 					if ( version_compare( $this->version, self::MAX_WXR_VERSION, '>' ) ) {
 						$this->logger->warning( sprintf(
-							__( 'This WXR file (version %s) is newer than the importer (version %s) and may not be supported. Please consider updating.', "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
+							__( 'This WXR file (version %s) is newer than the importer (version %s) and may not be supported. Please consider updating.', 'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
 							$this->version,
 							self::MAX_WXR_VERSION
 						) );
@@ -490,7 +490,8 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		// Log the data as debug info too
 		$data = $error->get_error_data();
 		if ( ! empty( $data ) ) {
-			$this->logger->debug( var_export( $data, true ) );
+			$encoded = wp_json_encode( $data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR );
+			$this->logger->debug( false !== $encoded ? $encoded : '' );
 		}
 	}
 
@@ -501,7 +502,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 	 */
 	protected function import_start( $file ) {
 		if ( ! is_file( $file ) ) {
-			return new WP_Error( 'wxr_importer.file_missing', __( 'The file does not exist, please try again.',  "customify-starter-sites", 'customify-sites' ) );
+			return new WP_Error( 'wxr_importer.file_missing', __( 'The file does not exist, please try again.',  'customify-starter-sites' ) );
 		}
 
 		// Suspend bunches of stuff in WP core
@@ -564,8 +565,9 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 	public function set_user_mapping( $mapping ) {
 		foreach ( $mapping as $map ) {
 			if ( empty( $map['old_slug'] ) || empty( $map['old_id'] ) || empty( $map['new_id'] ) ) {
-				$this->logger->warning( __( 'Invalid author mapping',  "customify-starter-sites", 'customify-sites' ) );
-				$this->logger->debug( var_export( $map, true ) );
+				$this->logger->warning( __( 'Invalid author mapping',  'customify-starter-sites' ) );
+				$encoded = wp_json_encode( $map, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR );
+				$this->logger->debug( false !== $encoded ? $encoded : '' );
 				continue;
 			}
 
@@ -665,7 +667,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 						// Bail now
 						return new WP_Error(
 							'wxr_importer.post.cannot_import_draft',
-							__( 'Cannot import auto-draft posts', "customify-starter-sites", 'customify-sites' ),
+							__( 'Cannot import auto-draft posts', 'customify-starter-sites' ),
 							$data
 						);
 					}
@@ -753,7 +755,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		// Is this type even valid?
 		if ( ! $post_type_object ) {
 			$this->logger->warning( sprintf(
-				__( 'Failed to import "%s": Invalid post type %s',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
+				__( 'Failed to import "%s": Invalid post type %s',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
 				$data['post_title'],
 				$data['post_type']
 			) );
@@ -763,7 +765,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		$post_exists = $this->post_exists( $data );
 		if ( $post_exists ) {
 			$this->logger->info( sprintf(
-				__( '%s "%s" already exists.',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
+				__( '%s "%s" already exists.',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
 				$post_type_object->labels->singular_name,
 				$data['post_title']
 			) );
@@ -848,7 +850,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		if ( 'attachment' === $postdata['post_type'] ) {
 			if ( ! $this->options['fetch_attachments'] ) {
 				$this->logger->notice( sprintf(
-					__( 'Skipping attachment "%s", fetching attachments disabled', "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
+					__( 'Skipping attachment "%s", fetching attachments disabled', 'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
 					$data['post_title']
 				) );
 				/**
@@ -873,7 +875,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 
 		if ( is_wp_error( $post_id ) ) {
 			$this->logger->error( sprintf(
-				__( 'Failed to import "%1s" (%2s)', "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+				__( 'Failed to import "%1s" (%2s)', 'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 				$data['post_title'],
 				$post_type_object->labels->singular_name
 			) );
@@ -905,12 +907,12 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		$this->mark_post_exists( $data, $post_id );
 
 		$this->logger->info( sprintf(
-			__( 'Imported "%s" (%s)', "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
+			__( 'Imported "%s" (%s)', 'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
 			$data['post_title'],
 			$post_type_object->labels->singular_name
 		) );
 		$this->logger->debug( sprintf(
-			__( 'Post %d remapped to %d', "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
+			__( 'Post %d remapped to %d', 'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText
 			$original_id,
 			$post_id
 		) );
@@ -1054,7 +1056,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 
 		$info = wp_check_filetype( $upload['file'] );
 		if ( ! $info ) {
-			return new WP_Error( 'attachment_processing_error', __( 'Invalid file type',  "customify-starter-sites", 'customify-sites' ) );
+			return new WP_Error( 'attachment_processing_error', __( 'Invalid file type',  'customify-starter-sites' ) );
 		}
 
 		$post['post_mime_type'] = $info['type'];
@@ -1549,7 +1551,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		$user_id = wp_insert_user( wp_slash( $userdata ) );
 		if ( is_wp_error( $user_id ) ) {
 			$this->logger->error( sprintf(
-				__( 'Failed to import user "%s"',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+				__( 'Failed to import user "%s"',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 				$userdata['user_login']
 			) );
 			$this->logger->debug( $user_id->get_error_message() );
@@ -1570,11 +1572,11 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		$this->mapping['user_slug'][ $original_slug ] = $user_id;
 
 		$this->logger->info( sprintf(
-			__( 'Imported user "%s"',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+			__( 'Imported user "%s"',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 			$userdata['user_login']
 		) );
 		$this->logger->debug( sprintf(
-			__( 'User %1d remapped to %2d',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+			__( 'User %1d remapped to %2d',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 			$original_id,
 			$user_id
 		) );
@@ -1719,7 +1721,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		$result = wp_insert_term( $data['name'], $data['taxonomy'], $termdata );
 		if ( is_wp_error( $result ) ) {
 			$this->logger->warning( sprintf(
-				__( 'Failed to import %1s %2s',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+				__( 'Failed to import %1s %2s',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 				$data['taxonomy'],
 				$data['name']
 			) );
@@ -1743,12 +1745,12 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		$this->mapping['term_id'][ $original_id ] = $term_id;
 
 		$this->logger->info( sprintf(
-			__( 'Imported "%1s" (%2s)',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+			__( 'Imported "%1s" (%2s)',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 			$data['name'],
 			$data['taxonomy']
 		) );
 		$this->logger->debug( sprintf(
-			__( 'Term %1d remapped to %2d',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+			__( 'Term %1d remapped to %2d',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 			$original_id,
 			$term_id
 		) );
@@ -1801,7 +1803,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			return new WP_Error(
 				'import_file_error',
 				sprintf(
-					__( 'Remote server returned %1$d %2$s for %3$s',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+					__( 'Remote server returned %1$d %2$s for %3$s',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 					$code,
 					get_status_header_desc( $code ),
 					$url
@@ -1814,18 +1816,18 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 
 		if ( isset( $headers['content-length'] ) && $filesize !== (int) $headers['content-length'] ) {
 			wp_delete_file( $upload['file'] );
-			return new WP_Error( 'import_file_error', __( 'Remote file is incorrect size',  "customify-starter-sites", 'customify-sites' ) );
+			return new WP_Error( 'import_file_error', __( 'Remote file is incorrect size',  'customify-starter-sites' ) );
 		}
 
 		if ( 0 === $filesize ) {
 			wp_delete_file( $upload['file'] );
-			return new WP_Error( 'import_file_error', __( 'Zero size file downloaded',  "customify-starter-sites", 'customify-sites' ) );
+			return new WP_Error( 'import_file_error', __( 'Zero size file downloaded',  'customify-starter-sites' ) );
 		}
 
 		$max_size = (int) $this->max_attachment_size();
 		if ( ! empty( $max_size ) && $filesize > $max_size ) {
 			wp_delete_file( $upload['file'] );
-			$message = sprintf( __( 'Remote file is too large, limit is %s',  "customify-starter-sites", 'customify-sites' ), size_format( $max_size ) ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+			$message = sprintf( __( 'Remote file is too large, limit is %s',  'customify-starter-sites' ), size_format( $max_size ) ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 			return new WP_Error( 'import_file_error', $message );
 		}
 
@@ -1847,7 +1849,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			$this->logger->debug( sprintf(
 				// Note: title intentionally not used to skip extra processing
 				// for when debug logging is off
-				__( 'Running post-processing for post %d',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+				__( 'Running post-processing for post %d',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 				$post_id
 			) );
 
@@ -1860,12 +1862,12 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 					$data['post_parent'] = $this->mapping['post'][ $parent_id ];
 				} else {
 					$this->logger->warning( sprintf(
-						__( 'Could not find the post parent for "%s" (post #%d)',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+						__( 'Could not find the post parent for "%s" (post #%d)',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 						get_the_title( $post_id ),
 						$post_id
 					) );
 					$this->logger->debug( sprintf(
-						__( 'Post %d was imported with parent %d, but could not be found',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+						__( 'Post %d was imported with parent %d, but could not be found',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 						$post_id,
 						$parent_id
 					) );
@@ -1879,12 +1881,12 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 					$data['post_author'] = $this->mapping['user_slug'][ $author_slug ];
 				} else {
 					$this->logger->warning( sprintf(
-						__( 'Could not find the author for "%s" (post #%d)',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+						__( 'Could not find the author for "%s" (post #%d)',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 						get_the_title( $post_id ),
 						$post_id
 					) );
 					$this->logger->debug( sprintf(
-						__( 'Post %d was imported with author "%s", but could not be found',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+						__( 'Post %d was imported with author "%s", but could not be found',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 						$post_id,
 						$author_slug
 					) );
@@ -1910,7 +1912,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			// Do we have updates to make?
 			if ( empty( $data ) ) {
 				$this->logger->debug( sprintf(
-					__( 'Post %d was marked for post-processing, but none was required.',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+					__( 'Post %d was marked for post-processing, but none was required.',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 					$post_id
 				) );
 				continue;
@@ -1921,7 +1923,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			$result = wp_update_post( $data, true );
 			if ( is_wp_error( $result ) ) {
 				$this->logger->warning( sprintf(
-					__( 'Could not update "%s" (post #%d) with mapped data',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+					__( 'Could not update "%s" (post #%d) with mapped data',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 					get_the_title( $post_id ),
 					$post_id
 				) );
@@ -1966,12 +1968,12 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			update_post_meta( $post_id, '_menu_item_object_id', wp_slash( $menu_object ) );
 		} else {
 			$this->logger->warning( sprintf(
-				__( 'Could not find the menu object for "%s" (post #%d)',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+				__( 'Could not find the menu object for "%s" (post #%d)',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 				get_the_title( $post_id ),
 				$post_id
 			) );
 			$this->logger->debug( sprintf(
-				__( 'Post %d was imported with object "%d" of type "%s", but could not be found',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+				__( 'Post %d was imported with object "%d" of type "%s", but could not be found',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 				$post_id,
 				$menu_object_id,
 				$menu_item_type
@@ -1993,11 +1995,11 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 					$data['comment_parent'] = $this->mapping['comment'][ $parent_id ];
 				} else {
 					$this->logger->warning( sprintf(
-						__( 'Could not find the comment parent for comment #%d',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+						__( 'Could not find the comment parent for comment #%d',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 						$comment_id
 					) );
 					$this->logger->debug( sprintf(
-						__( 'Comment %d was imported with parent %d, but could not be found',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+						__( 'Comment %d was imported with parent %d, but could not be found',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 						$comment_id,
 						$parent_id
 					) );
@@ -2011,11 +2013,11 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 					$data['user_id'] = $this->mapping['user'][ $author_id ];
 				} else {
 					$this->logger->warning( sprintf(
-						__( 'Could not find the author for comment #%d',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+						__( 'Could not find the author for comment #%d',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 						$comment_id
 					) );
 					$this->logger->debug( sprintf(
-						__( 'Comment %d was imported with author %d, but could not be found',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+						__( 'Comment %d was imported with author %d, but could not be found',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 						$comment_id,
 						$author_id
 					) );
@@ -2032,7 +2034,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			$result = wp_update_comment( wp_slash( $data ) );
 			if ( empty( $result ) ) {
 				$this->logger->warning( sprintf(
-					__( 'Could not update comment #%d with mapped data',  "customify-starter-sites", 'customify-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
+					__( 'Could not update comment #%d with mapped data',  'customify-starter-sites' ), // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 					$comment_id
 				) );
 				continue;

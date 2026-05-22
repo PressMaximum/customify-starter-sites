@@ -74,7 +74,7 @@ class Customify_Starter_Sites_WXR_Import_UI
 		if (!update_post_meta($id, '_wxr_import_info', $data)) {
 			return new WP_Error(
 				'wxr_importer.upload.failed_save_meta',
-				__('Could not cache information on the import.', "customify-starter-sites", 'customify-sites'),
+				__('Could not cache information on the import.', 'customify-starter-sites'),
 				compact('id')
 			);
 		}
@@ -89,19 +89,26 @@ class Customify_Starter_Sites_WXR_Import_UI
 	{
 		global $wpdb;
 
-		return $wpdb->get_col($wpdb->prepare("
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Importer needs a direct post ID lookup by title.
+		return $wpdb->get_col(
+			$wpdb->prepare(
+				"
 		SELECT ID
 		FROM $wpdb->posts
 		WHERE post_title = %s
 		AND post_type = %s
-	", $page_title, $post_type)); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+	",
+				$page_title,
+				$post_type
+			)
+		);
 	}
 
 
 	public function import()
 	{
-
-		$this->id = wp_unslash((int) $_REQUEST['id']); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce verified in Customify_Starter_Sites_Ajax::ajax_import_content() before import runs.
+		$this->id = isset( $_REQUEST['id'] ) ? absint( wp_unslash( $_REQUEST['id'] ) ) : 0;
 		// Download media files
 		$this->fetch_attachments = true;
 		$importer = $this->get_importer();

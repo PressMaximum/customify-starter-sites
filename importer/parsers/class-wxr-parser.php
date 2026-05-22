@@ -42,8 +42,8 @@ class WXR_Parser {
 				echo $error[0] . ':' . $error[1] . ' ' . esc_html( $error[2] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped,WordPress.Security.EscapeOutput.OutputNotEscaped	
 			}
 			echo '</pre>';
-			echo '<p><strong>' . __( 'There was an error when reading this WXR file', "customify-starter-sites", 'customify-sites' ) . '</strong><br />'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped,WordPress.Security.EscapeOutput.OutputNotEscaped	
-			echo __( 'Details are shown above. The importer will now try again with a different parser...', "customify-starter-sites", 'customify-sites' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped,WordPress.Security.EscapeOutput.OutputNotEscaped	
+			echo '<p><strong>' . __( 'There was an error when reading this WXR file', 'customify-starter-sites' ) . '</strong><br />'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped,WordPress.Security.EscapeOutput.OutputNotEscaped	
+			echo __( 'Details are shown above. The importer will now try again with a different parser...', 'customify-starter-sites' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped,WordPress.Security.EscapeOutput.OutputNotEscaped	
 		}
 
 		// use regular expressions if nothing else available or this is bad XML

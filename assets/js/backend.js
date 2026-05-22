@@ -342,6 +342,7 @@ jQuery( document ).ready( function( $ ){
                             type: 'post',
                             data: {
                                 action: 'cs_download_files',
+                                nonce: Customify_Starter_Sites.ajax_nonce,
                                 resources: that.data.resources,
                                 builder: that.current_builder,
                                 site_slug: that.data.slug,
@@ -416,6 +417,7 @@ jQuery( document ).ready( function( $ ){
                             url: Customify_Starter_Sites.ajax_url,
                             data: {
                                 action: 'cs_install_plugin',
+                                nonce: Customify_Starter_Sites.ajax_nonce,
                                 plugin: plugin_data
                             },
                             success: function (res) {
@@ -434,6 +436,7 @@ jQuery( document ).ready( function( $ ){
                         url: Customify_Starter_Sites.ajax_url,
                         data: {
                             action: 'cs_active_plugin',
+                            nonce: Customify_Starter_Sites.ajax_nonce,
                             plugin: plugin_data
                         },
                         success: function (res) {
@@ -466,6 +469,7 @@ jQuery( document ).ready( function( $ ){
                                 url: Customify_Starter_Sites.ajax_url,
                                 data: {
                                     action: 'cs_import_content',
+                                    nonce: Customify_Starter_Sites.ajax_nonce,
                                     id: that.xml_id,
 
                                 },
@@ -482,10 +486,11 @@ jQuery( document ).ready( function( $ ){
                             });
                         };
 
-                        $.ajax({ // ajax_import__check
+                        $.ajax({ // cs_import__check
                             url: Customify_Starter_Sites.ajax_url,
                             data: {
-                                action: 'ajax_import__check'
+                                action: 'cs_import__check',
+                                nonce: Customify_Starter_Sites.ajax_nonce
                             },
                             success: function (res) {
                                 cb();
@@ -539,6 +544,7 @@ jQuery( document ).ready( function( $ ){
                             url: Customify_Starter_Sites.ajax_url,
                             data: {
                                 action: 'cs_import_options',
+                                nonce: Customify_Starter_Sites.ajax_nonce,
                                 id: that.json_id,
                                 xml_id: that.xml_id
                             },

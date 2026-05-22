@@ -36,7 +36,7 @@ Class Customify_Starter_Sites {
 
     function admin_notice( $hook ) {
         $screen = get_current_screen();
-        if( $screen->id != 'appearance_page_customify-sites' && $screen->id != 'themes' ) {
+        if( $screen->id != 'appearance_page_customify-starter-sites' && $screen->id != 'themes' ) {
             return '';
         }
 
@@ -51,11 +51,20 @@ Class Customify_Starter_Sites {
             $url = esc_url( 'theme-install.php?search='.self::THEME_NAME );
         }
 
-        $html = sprintf( '<strong>Customify Site Library</strong> requires <strong>Customify</strong> theme to be activated to work. <a href="%1$s">Install &amp; Activate Now</a>', $url );
         ?>
         <div class="notice notice-warning is-dismissible">
             <p>
-                <?php echo $html; ?>
+                <?php
+                printf(
+                    '<strong>%1$s</strong> %2$s <strong>%3$s</strong> %4$s <a href="%5$s">%6$s</a>',
+                    esc_html__( 'Customify Site Library', 'customify-starter-sites' ),
+                    esc_html__( 'requires', 'customify-starter-sites' ),
+                    esc_html__( 'Customify', 'customify-starter-sites' ),
+                    esc_html__( 'theme to be activated to work.', 'customify-starter-sites' ),
+                    esc_url( $url ),
+                    esc_html__( 'Install & Activate Now', 'customify-starter-sites' )
+                );
+                ?>
             </p>
         </div>
         <?php
@@ -66,12 +75,12 @@ Class Customify_Starter_Sites {
     }
 
     function add_menu() {
-        add_theme_page(__( 'Customify Sites', "customify-starter-sites", 'customify-sites' ), __( 'Customify Sites', "customify-starter-sites", 'customify-sites' ), 'edit_theme_options', "customify-starter-sites", array( $this, 'page' ));
+        add_theme_page(__( 'Customify Sites', 'customify-starter-sites'), __( 'Customify Sites', 'customify-starter-sites' ), 'edit_theme_options', "customify-starter-sites", array( $this, 'page' ));
     }
 
     function page(){
         echo '<div class="wrap">';
-        echo '<h1 class="wp-heading-inline">'.__( 'Customify Site Library', "customify-starter-sites", 'customify-sites' ).'</h1><hr class="wp-header-end">';
+        echo '<h1 class="wp-heading-inline">' . esc_html__( 'Customify Site Library', 'customify-starter-sites' ) . '</h1><hr class="wp-header-end">';
         require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/dashboard.php';
         require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/modal.php';
         echo '</div>';
@@ -109,19 +118,19 @@ Class Customify_Starter_Sites {
 
     function get_support_plugins(){
         $plugins = array(
-            'customify-pro' => _x( 'Customify Pro', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
+            'customify-pro' => _x( 'Customify Pro', 'plugin-name', 'customify-starter-sites'),
 
-            'elementor' => _x( 'Elementor', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
-            'elementor-pro' => _x( 'Elementor Pro', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
-            'beaver-builder-lite-version' => _x( 'Beaver Builder', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
-            'contact-form-7' => _x( 'Contact Form 7', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
+            'elementor' => _x( 'Elementor', 'plugin-name', 'customify-starter-sites' ),
+            'elementor-pro' => _x( 'Elementor Pro', 'plugin-name', 'customify-starter-sites' ),
+            'beaver-builder-lite-version' => _x( 'Beaver Builder', 'plugin-name', 'customify-starter-sites' ),
+            'contact-form-7' => _x( 'Contact Form 7', 'plugin-name', 'customify-starter-sites' ),
 
-            'breadcrumb-navxt' => _x( 'Breadcrumb NavXT', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
-            'jetpack' => _x( 'JetPack', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
-            'easymega' => _x( 'Mega menu', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
-            'polylang' => _x( 'Polylang', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
-            'woocommerce' => _x( 'WooCommerce', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
-            'give' => _x( 'Give – Donation Plugin and Fundraising Platform', 'plugin-name', "customify-starter-sites", 'customify-sites' ),
+            'breadcrumb-navxt' => _x( 'Breadcrumb NavXT', 'plugin-name', 'customify-starter-sites' ),
+            'jetpack' => _x( 'JetPack', 'plugin-name', 'customify-starter-sites' ),
+            'easymega' => _x( 'Mega menu', 'plugin-name', 'customify-starter-sites' ),
+            'polylang' => _x( 'Polylang', 'plugin-name', 'customify-starter-sites'),
+            'woocommerce' => _x( 'WooCommerce', 'plugin-name', 'customify-starter-sites' ),
+            'give' => _x( 'Give – Donation Plugin and Fundraising Platform', 'plugin-name', 'customify-starter-sites' ),
         );
 
         return $plugins;
@@ -157,8 +166,8 @@ Class Customify_Starter_Sites {
             'api_url' => self::get_api_url(),
             'ajax_url' => admin_url( 'admin-ajax.php' ),
             'is_admin' => is_admin(),
-            'try_again' => __( 'Try Again', "customify-starter-sites", 'customify-sites' ),
-            'pro_text' => __( 'Pro only', "customify-starter-sites", 'customify-sites' ),
+            'try_again' => __( 'Try Again', 'customify-starter-sites' ),
+            'pro_text' => __( 'Pro only', 'customify-starter-sites' ),
             'activated_plugins' => $this->get_activated_plugins(),
             'installed_plugins' => $this->get_installed_plugins(),
             'support_plugins' => $this->get_support_plugins(),
@@ -167,6 +176,7 @@ Class Customify_Starter_Sites {
 
         $args['elementor_clear_cache_nonce'] = wp_create_nonce( 'elementor_clear_cache' );
         $args['elementor_reset_library_nonce'] = wp_create_nonce( 'elementor_reset_library' );
+		$args['ajax_nonce']                  = wp_create_nonce( 'customify_starter_sites' );
 
         return $args;
     }

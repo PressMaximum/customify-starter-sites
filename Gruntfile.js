@@ -149,7 +149,7 @@ module.exports = function (grunt) {
       target: {
         options: {
           domainPath: "/",
-          potFilename: "languages/customify-sites.pot",
+          potFilename: "languages/customify-starter-sites.pot",
           potHeaders: {
             poedit: true,
             "x-poedit-keywordslist": true,
@@ -162,7 +162,7 @@ module.exports = function (grunt) {
 
     addtextdomain: {
       options: {
-        textdomain: "customify-sites",
+        textdomain: "customify-starter-sites",
       },
       target: {
         files: {
