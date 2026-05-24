@@ -14,9 +14,10 @@
 # Zip output:
 #   - releases/customify-starter-sites-<Version>.zip trong thư mục plugin
 #
-# Version (tag & tên file):
-#   - Ưu tiên package.json → "version"; fallback header PHP customify-starter-sites.php
-#
+# Version & đồng bộ file:
+#   - Chỉ đọc từ package.json (cần Node).
+#   - Trước khi zip (trừ --dry-run): ghi vào header Version của customify-starter-sites.php
+#     và dòng Stable tag trong readme.txt.
 
 set -euo pipefail
 
@@ -63,34 +64,85 @@ if [[ ! -f "${MAIN_FILE}" ]]; then
 	exit 1
 fi
 
-VERSION=""
-VERSION_SOURCE="package.json"
-
-if [[ -f "${PACKAGE_JSON}" ]] && command -v node >/dev/null 2>&1; then
-	VERSION="$(node -p "require('./package.json').version" 2>/dev/null | tr -d $'\t\r\n' || true)"
-fi
-
-if [[ -z "${VERSION}" ]]; then
-	VERSION="$(grep -m1 -E '^[[:space:]]*Version:' "${MAIN_FILE}" | sed -e 's/^[[:space:]]*Version:[[:space:]]*//' -e 's/[[:space:]]*$//')"
-	VERSION_SOURCE="customify-starter-sites.php (header)"
-fi
-
-if [[ -z "${VERSION}" ]]; then
-	echo "ERROR: Không có version — kiểm tra package.json hoặc ${MAIN_FILE}" >&2
+if [[ ! -f "${PACKAGE_JSON}" ]]; then
+	echo "ERROR: Không có ${PACKAGE_JSON} — cần file này để lấy version." >&2
 	exit 1
 fi
 
-PHP_HDR_VER="$(grep -m1 -E '^[[:space:]]*Version:' "${MAIN_FILE}" | sed -e 's/^[[:space:]]*Version:[[:space:]]*//' -e 's/[[:space:]]*$//')"
-if [[ "${VERSION_SOURCE}" == "package.json" && -n "${PHP_HDR_VER}" && "${VERSION}" != "${PHP_HDR_VER}" ]]; then
-	echo "WARNING: package.json (${VERSION}) khác Plugin header (${PHP_HDR_VER}). Tag/release dùng theo package.json." >&2
+if ! command -v node >/dev/null 2>&1; then
+	echo "ERROR: Cần Node.js để đọc package.json và đồng bộ version." >&2
+	exit 1
 fi
+
+VERSION="$(node -p "require('./package.json').version" 2>/dev/null | tr -d $'\t\r\n' || true)"
+
+if [[ -z "${VERSION}" ]]; then
+	echo "ERROR: package.json không có trường version hợp lệ." >&2
+	exit 1
+fi
+
+if [[ ! "${VERSION}" =~ ^[0-9A-Za-z._+-]+$ ]]; then
+	echo "ERROR: version trong package.json có ký tự không cho phép: ${VERSION}" >&2
+	exit 1
+fi
+
+sync_plugin_version_files() {
+	if [[ "${DRY_RUN}" -eq 1 ]]; then
+		echo "[dry-run] Sẽ cập nhật Version (${VERSION}) vào ${PLUGIN_SLUG}.php và Stable tag trong readme.txt"
+		return 0
+	fi
+
+	export SYNC_VER="${VERSION}"
+	export SYNC_PLUGIN_DIR="${PLUGIN_DIR}"
+	export SYNC_PLUGIN_SLUG="${PLUGIN_SLUG}"
+
+	node <<'NODESYNC'
+const fs = require('fs');
+const path = require('path');
+const dir = process.env.SYNC_PLUGIN_DIR;
+const slug = process.env.SYNC_PLUGIN_SLUG;
+const v = process.env.SYNC_VER;
+if (!dir || !slug || !v) {
+	process.stderr.write('ERROR: thiếu biến môi trường đồng bộ.\n');
+	process.exit(1);
+}
+
+const mainPath = path.join(dir, `${slug}.php`);
+let php = fs.readFileSync(mainPath, 'utf8');
+const phpBefore = php;
+php = php.replace(/^Version:\s.*$/m, `Version: ${v}`);
+if (php === phpBefore) {
+	process.stderr.write(`ERROR: Không thấy/thay được dòng "Version:" trong ${slug}.php\n`);
+	process.exit(1);
+}
+fs.writeFileSync(mainPath, php);
+
+const readmePath = path.join(dir, 'readme.txt');
+if (fs.existsSync(readmePath)) {
+	let rd = fs.readFileSync(readmePath, 'utf8');
+	if (/^Stable tag:\s*.*$/m.test(rd)) {
+		rd = rd.replace(/^Stable tag:\s*.*$/m, `Stable tag: ${v}`);
+		fs.writeFileSync(readmePath, rd);
+	}
+}
+NODESYNC
+	echo "→ Đã đồng bộ Version / Stable tag từ package.json → plugin + readme.txt"
+	unset SYNC_VER SYNC_PLUGIN_DIR SYNC_PLUGIN_SLUG
+}
+
+sync_plugin_version_files
 
 TAG="v${VERSION}"
 ZIP_NAME="${PLUGIN_SLUG}-${VERSION}.zip"
 ZIP_PATH="${RELEASES_DIR}/${ZIP_NAME}"
 
 echo "→ Plugin dir: ${PLUGIN_DIR}"
-echo "→ Version:    ${VERSION}  (${VERSION_SOURCE}) — tag ${TAG}"
+if [[ "${DRY_RUN}" -eq 1 ]]; then
+	echo "→ Version:    ${VERSION} (package.json — dry-run: chưa sửa file, chưa cần gh)"
+else
+	echo "→ Version:    ${VERSION} (package.json — đã ghi vào ${PLUGIN_SLUG}.php và readme Stable tag)"
+fi
+echo "→ Tag/release: ${TAG}"
 echo "→ Output zip: ${ZIP_PATH}"
 
 run() {

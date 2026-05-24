@@ -5,7 +5,7 @@ Plugin URI: https://wpcustomify.com
 Description: Import free sites build with Customify theme.
 Author: pressmaximum
 Author URI: https://pressmaximum.com/customify
-Version: 0.0.16
+Version: 0.0.17
 Text Domain: customify-starter-sites
 Domain Path: /languages
 License: GPL-2.0-or-later

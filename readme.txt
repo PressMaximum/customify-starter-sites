@@ -2,8 +2,8 @@
 Contributors: pressmaximum
 Tags: importer, demo, starter sites, customify
 Requires at least: 5.0
-Tested up to: 6.6
-Stable tag: 0.0.16
+Tested up to: 7.0
+Stable tag: 0.0.17
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
