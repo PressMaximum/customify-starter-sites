@@ -4,6 +4,16 @@ jQuery( document ).ready( function( $ ){
     var modal_sites = {};
     var current_page_builder = 'all';
 
+    /** Plugins never shown or auto-installed by the starter wizard (match PHP skips). */
+    var SKIP_RECOMMEND_PLUGIN_SLUGS = {
+        'custom-sidebars': true,
+        'gutenberg': true
+    };
+
+    function shouldSkipRecommendPluginSlug( slug ) {
+        return Boolean( slug && SKIP_RECOMMEND_PLUGIN_SLUGS[ String( slug ).toLowerCase() ] );
+    }
+
     var getTemplate = _.memoize(function () {
 
         var compiled,
@@ -60,6 +70,7 @@ jQuery( document ).ready( function( $ ){
                 var template = that.getTemplate();
 
                 that.data = data;
+                console.log('Add_modal_data', data);
                 var html = template( data, 'tpl-cs-item-modal' );
                 that.modal = $( html );
                 $( '#wpbody-content' ).append( that.modal );
@@ -92,6 +103,31 @@ jQuery( document ).ready( function( $ ){
                 });
 
             },
+
+            /**
+             * Normalize _recommend_plugins from JSON download (slug => label or alternate array shapes).
+             */
+            _normalizeRecommendPlugins: function( raw ) {
+                var out = {};
+                if ( ! raw ) {
+                    return out;
+                }
+                if ( _.isArray( raw ) ) {
+                    _.each( raw, function( item ){
+                        if ( item && _.isObject( item ) && item.slug && ! shouldSkipRecommendPluginSlug( item.slug ) ) {
+                            out[ item.slug ] = item.name ? item.name : item.slug;
+                        }
+                    });
+                } else if ( _.isObject( raw ) ) {
+                    _.each( raw, function( name, slug ){
+                        if ( _.isString( slug ) && ! shouldSkipRecommendPluginSlug( slug ) ) {
+                            out[ slug ] = name;
+                        }
+                    });
+                }
+                return out;
+            },
+
             _install_plugins_notice: function (){
                 //.cs-install-plugins
                 var that = this;
@@ -127,9 +163,33 @@ jQuery( document ).ready( function( $ ){
             _setup_plugins: function(){
                 var that = this;
 
-                if ( _.size( that.recommend_plugins ) > 0 ) {
-                    $('.cs-installing-plugins', that.modal).html('');
-                    _.each(that.recommend_plugins, function (name, slug) {
+                that.recommend_plugins = that._normalizeRecommendPlugins( that.recommend_plugins );
+
+                if ( _.isEmpty( that.data.manual_plugins ) ) {
+                    that.data.manual_plugins = {};
+                }
+
+                that.skip_plugins = true;
+                $('.cs-installing-plugins', that.modal ).html('');
+
+                if ( _.size( that.recommend_plugins ) < 1 ) {
+                    console.log( 'Plugin__check', that.skip_plugins, that.data.manual_plugins );
+                    return;
+                }
+
+                var pending = _.filter(_.keys(that.recommend_plugins), function(slug){
+                    return ! that.is_activated( slug );
+                });
+
+                if ( pending.length === 0 ) {
+                    /* All recommended plugins already active — skip this carousel step via owl handler */
+                    console.log( 'Plugin__check', that.skip_plugins, that.data.manual_plugins );
+                    return;
+                }
+
+                that.skip_plugins = false;
+
+                _.each(that.recommend_plugins, function (name, slug) {
                         var html = '';
                         // If plugin not in manual install
                         if (_.isUndefined(that.data.manual_plugins[slug])) {
@@ -149,11 +209,12 @@ jQuery( document ).ready( function( $ ){
                             }
                         }
 
-                        $('.cs-installing-plugins', that.modal).append(html);
-                    });
-                } else {
-                    that.skip_plugins = true;
-                }
+                        if ( html !== '' ) {
+                            $('.cs-installing-plugins', that.modal).append(html);
+                        }
+                });
+
+                console.log( 'Plugin__check',  that.skip_plugins,  that.data.manual_plugins )
 
             },
 
@@ -187,12 +248,11 @@ jQuery( document ).ready( function( $ ){
                 that.buttons.import_options = $( '.cs-do-import-options', that.modal );
                 that.buttons.view_site = $( '.cs-do-view-site', that.modal );
 
-                if ( _.isEmpty( that.data.plugins ) && _.isEmpty( that.data.manual_plugins )  ) {
-                    that.last_step = 3;
-                    $( '.cs-breadcrumb li[data-step="install_plugins"]', that.modal ).remove();
-                    $( '.cs-step-install_plugins', that.modal ).remove();
-                    that.buttons.install_plugins.remove();
-                }
+                /*
+                 * Do not remove the Install Plugins step when site JSON lacks data.plugins/manual_plugins —
+                 * recommended plugins often come later from `_recommend_plugins` in the downloaded config.
+                 */
+
                 that.breadcrumb = $( '.cs-breadcrumb li', that.modal );
 
                 /**
@@ -353,15 +413,17 @@ jQuery( document ).ready( function( $ ){
                                 that.json_id = res.json_id;
                                 that.recommend_plugins = res._recommend_plugins;
 
-                                if ( ! _.isObject( that.recommend_plugins ) ) {
-                                    that.recommend_plugins = {};
-                                }
+                                console.log( 'Plugin__check_is_object', _.isObject( that.recommend_plugins ), typeof that.recommend_plugins  )
+
+                                that.recommend_plugins = that._normalizeRecommendPlugins( that.recommend_plugins );
                                 if (that.xml_id <= 0) {
                                     that._reset();
                                     $('.cs-error-download-files', that.modal).removeClass('cs-hide');
                                     that.doing = false;
                                     that.buttons.start.find('.cs-btn-circle-text').text(Customify_Starter_Sites.try_again);
                                 } else {
+
+                                    console.log(' Call_start' );
                                     _.each(res.texts, function (t, k) {
                                         $('.cs-' + k, that.modal).html(t);
                                     });
@@ -384,12 +446,36 @@ jQuery( document ).ready( function( $ ){
                 var n_plugin_installed = 0;
                 var n;
 
+                /**
+                 * Keep localized maps in sync so later steps resolve plugin state correctly.
+                 */
+                var mergeLocalPluginState = function( slug ) {
+                    if ( ! slug ) {
+                        return;
+                    }
+                    var label = that.recommend_plugins[ slug ]
+                        || Customify_Starter_Sites.installed_plugins[ slug ]
+                        || ( Customify_Starter_Sites.support_plugins && Customify_Starter_Sites.support_plugins[ slug ] )
+                        || slug;
+                    Customify_Starter_Sites.installed_plugins[ slug ] = label;
+                    Customify_Starter_Sites.activated_plugins[ slug ] = slug;
+                };
+
+                var resetInstallUiAfterFailure = function ( pluginSlug ) {
+                    that.doing = false;
+                    that._reset();
+                    if ( pluginSlug ) {
+                        $( '.cs-installing-plugins li[data-slug="' + pluginSlug + '"] .circle-loader', that.modal ).removeClass( 'circle-loading' );
+                    }
+                };
+
                 that.buttons.install_plugins.on( 'click', function( e ){
                     e.preventDefault();
                     list = $( '.cs-installing-plugins li', that.modal );
                     n = list.length;
                     if ( n > 0 ) {
                         if (!that.doing) {
+                            n_plugin_installed = 0;
                             that.doing = true;
                             that.loading_button('install_plugins');
                             ajax_install_plugin();
@@ -402,11 +488,13 @@ jQuery( document ).ready( function( $ ){
                 var ajax_install_plugin = function () {
                     that.doing = true;
                     var plugin_data = list.eq(n_plugin_installed).attr( 'data-slug' ) || '';
-                    if ( that.is_activated( plugin_data ) ){ // this plugin already installed
+                    if ( that.is_activated( plugin_data ) ){
+                        mergeLocalPluginState( plugin_data );
                         n_plugin_installed++;
                         if( n_plugin_installed < n ) {
                             ajax_install_plugin();
                         } else {
+                            that.doing = false;
                             that.step_completed( 'install_plugins' );
                         }
                     } else if( that.is_installed( plugin_data ) ) {
@@ -415,13 +503,22 @@ jQuery( document ).ready( function( $ ){
                         $( '.cs-installing-plugins li[data-slug="'+plugin_data+'"] .circle-loader', that.modal ).removeClass('load-complete').addClass('circle-loading');
                         $.ajax({
                             url: Customify_Starter_Sites.ajax_url,
+                            type: 'post',
+                            dataType: 'json',
                             data: {
                                 action: 'cs_install_plugin',
                                 nonce: Customify_Starter_Sites.ajax_nonce,
                                 plugin: plugin_data
                             },
                             success: function (res) {
+                                if ( ! res || res.success !== true ) {
+                                    resetInstallUiAfterFailure( plugin_data );
+                                    return;
+                                }
                                 ajax_active_plugin();
+                            },
+                            error: function () {
+                                resetInstallUiAfterFailure( plugin_data );
                             }
                         });
                     }
@@ -434,19 +531,30 @@ jQuery( document ).ready( function( $ ){
                     $( '.cs-installing-plugins li[data-slug="'+plugin_data+'"] .circle-loader', that.modal ).removeClass('load-complete').addClass('circle-loading');
                     $.ajax({
                         url: Customify_Starter_Sites.ajax_url,
+                        type: 'post',
+                        dataType: 'json',
                         data: {
                             action: 'cs_active_plugin',
                             nonce: Customify_Starter_Sites.ajax_nonce,
                             plugin: plugin_data
                         },
                         success: function (res) {
+                            if ( ! res || res.success !== true ) {
+                                resetInstallUiAfterFailure( plugin_data );
+                                return;
+                            }
+                            mergeLocalPluginState( plugin_data );
                             n_plugin_installed++;
                             $( '.cs-installing-plugins li[data-slug="'+plugin_data+'"] .circle-loader', that.modal ).removeClass('circle-loading').addClass( 'load-complete' );
                             if( n_plugin_installed < n ) {
                                 ajax_install_plugin();
                             } else {
+                                that.doing = false;
                                 that.step_completed( 'install_plugins' );
                             }
+                        },
+                        error: function () {
+                            resetInstallUiAfterFailure( plugin_data );
                         }
                     });
                 };

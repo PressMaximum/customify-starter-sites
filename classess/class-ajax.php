@@ -8,9 +8,9 @@ class Customify_Starter_Sites_Ajax {
 
 	function __construct() {
 		// Install Plugin
-		add_action( 'wp_ajax_cs_install_plugin', array( Customify_Starter_Sites_Plugin::get_instance(), 'ajax' ) );
+		add_action( 'wp_ajax_cs_install_plugin', array( Customify_Starter_Sites_Plugin::get_instance(), 'ajax_install_plugin' ) );
 		// Active Plugin
-		add_action( 'wp_ajax_cs_active_plugin', array( Customify_Starter_Sites_Plugin::get_instance(), 'ajax' ) );
+		add_action( 'wp_ajax_cs_active_plugin', array( Customify_Starter_Sites_Plugin::get_instance(), 'ajax_activate_plugin' ) );
 
 		add_filter( 'upload_mimes', array( $this, 'add_mime_type_xml_json' ) );
 
@@ -239,7 +239,7 @@ class Customify_Starter_Sites_Ajax {
 		}
 
 		$config = array(
-			'_recommend_plugins' => $plugins,
+			'_recommend_plugins' => $this->filter_skipped_recommend_plugins( $plugins ),
 			'home_url'           => home_url( '/' ),
 			'menus'              => $nav_menu_locations,
 			'pages'              => array(
@@ -302,6 +302,43 @@ class Customify_Starter_Sites_Ajax {
 			status_header( 403 );
 			die( 'access_denied' );
 		}
+	}
+
+	/**
+	 * Plugin directory slugs the starter wizard never installs (recommended list is stripped).
+	 *
+	 * @return string[]
+	 */
+	public function get_skipped_recommend_plugin_slugs() {
+		$skipped = array(
+			'custom-sidebars',
+			'gutenberg',
+		);
+
+		return apply_filters( 'customify_starter_sites/skipped_recommend_plugin_slugs', $skipped );
+	}
+
+	/**
+	 * Drop skipped plugin slugs from _recommend_plugins (slug => name).
+	 *
+	 * @param mixed $plugins List from starter JSON export.
+	 * @return array
+	 */
+	public function filter_skipped_recommend_plugins( $plugins ) {
+		if ( ! is_array( $plugins ) ) {
+			return array();
+		}
+
+		$skipped = array_map( 'sanitize_key', $this->get_skipped_recommend_plugin_slugs() );
+		$skip    = array_flip( $skipped );
+
+		foreach ( $plugins as $slug => $label ) {
+			if ( isset( $skip[ sanitize_key( $slug ) ] ) ) {
+				unset( $plugins[ $slug ] );
+			}
+		}
+
+		return $plugins;
 	}
 
 	function ajax_import_content() {
@@ -473,7 +510,7 @@ class Customify_Starter_Sites_Ajax {
 		if ( $return['json_id'] ) {
 			$options = $this->get_config_options( $return['json_id'] );
 			if ( isset( $options['_recommend_plugins'] ) ) {
-				$return['_recommend_plugins'] = $options['_recommend_plugins'];
+				$return['_recommend_plugins'] = $this->filter_skipped_recommend_plugins( $options['_recommend_plugins'] );
 			}
 		}
 
