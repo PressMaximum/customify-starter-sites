@@ -12,7 +12,7 @@
 #   - Plugin directory is a git clone of the target GitHub repo (or GH_REPO=owner/repo)
 #
 # Zip output:
-#   - releases/customify-starter-sites-<Version>.zip inside the plugin directory
+#   - dist/customify-starter-sites-<Version>.zip inside the plugin directory
 #
 # Version & file sync:
 #   - Read only from package.json (requires Node).
@@ -49,7 +49,7 @@ PLUGIN_SLUG="customify-starter-sites"
 
 MAIN_FILE="${PLUGIN_DIR}/${PLUGIN_SLUG}.php"
 PACKAGE_JSON="${PLUGIN_DIR}/package.json"
-RELEASES_DIR="${PLUGIN_DIR}/releases"
+DIST_DIR="${PLUGIN_DIR}/dist"
 
 cd "${PLUGIN_DIR}"
 
@@ -174,7 +174,7 @@ sync_plugin_version_files
 
 TAG="v${VERSION}"
 ZIP_NAME="${PLUGIN_SLUG}-${VERSION}.zip"
-ZIP_PATH="${RELEASES_DIR}/${ZIP_NAME}"
+ZIP_PATH="${DIST_DIR}/${ZIP_NAME}"
 
 echo "→ Plugin dir: ${PLUGIN_DIR}"
 if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -202,7 +202,7 @@ if [[ "${DRY_RUN}" -ne 1 ]]; then
 	}
 fi
 
-mkdir -p "${RELEASES_DIR}"
+mkdir -p "${DIST_DIR}"
 
 STAGE="$(mktemp -d)"
 cleanup() {
@@ -287,6 +287,7 @@ RSYNC_EXCLUDES=(
 
 	# Artefacts / bundles / IDE
 	'--exclude=releases/'
+	'--exclude=dist/'
 	'--exclude=scripts/'
 	'--exclude=release.sh'
 	'--exclude=.idea/'

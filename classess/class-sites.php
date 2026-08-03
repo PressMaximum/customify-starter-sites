@@ -24,17 +24,11 @@ class Customify_Starter_Sites {
             self::$_instance = new self();
             add_action( 'admin_menu', array( self::$_instance, 'add_menu' ), 50 );
             add_action( 'admin_enqueue_scripts', array( self::$_instance, 'admin_scripts' ) );
-            add_action( 'admin_notices', array( self::$_instance, 'admin_notice' ) );
         }
         return self::$_instance;
     }
 
 	function admin_notice() {
-		$screen = get_current_screen();
-		if ( ! $screen || ( $screen->id !== $this->menu_hook && $screen->id !== 'themes' ) ) {
-            return '';
-        }
-
         if( get_template() == self::THEME_NAME  ) {
             return '';
         }
@@ -105,6 +99,7 @@ class Customify_Starter_Sites {
     function page(){
         echo '<div class="wrap">';
         echo '<h1 class="wp-heading-inline">' . esc_html__( 'Customify Site Library', 'customify-starter-sites' ) . '</h1><hr class="wp-header-end">';
+        $this->admin_notice();
         require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/dashboard.php';
         require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/modal.php';
         echo '</div>';
