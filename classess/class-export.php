@@ -4,6 +4,38 @@ defined( 'ABSPATH' ) || exit;
 
 // phpcs:disable
 
+/**
+ * Convert ISO-8859-1 text to UTF-8 without using deprecated PHP functions.
+ *
+ * @param string $string Text encoded as ISO-8859-1.
+ * @return string UTF-8 encoded text.
+ */
+function customify_starter_sites_latin1_to_utf8( $string ) {
+	$string = (string) $string;
+
+	if ( function_exists( 'mb_convert_encoding' ) ) {
+		return mb_convert_encoding( $string, 'UTF-8', 'ISO-8859-1' );
+	}
+
+	if ( function_exists( 'iconv' ) ) {
+		$converted = iconv( 'ISO-8859-1', 'UTF-8', $string );
+		if ( false !== $converted ) {
+			return $converted;
+		}
+	}
+
+	$converted = preg_replace_callback(
+		'/[\x80-\xFF]/',
+		static function ( $match ) {
+			$byte = ord( $match[0] );
+			return chr( 0xC0 | ( $byte >> 6 ) ) . chr( 0x80 | ( $byte & 0x3F ) );
+		},
+		$string
+	);
+
+	return is_string( $converted ) ? $converted : $string;
+}
+
 class Customify_Starter_Sites_Export {
 	function __construct( $args ) {
 
@@ -198,7 +230,7 @@ class Customify_Starter_Sites_Export {
 		 */
 		function wxr_cdata( $str ) {
 			if ( ! seems_utf8( $str ) ) {
-				$str = utf8_encode( $str );
+				$str = customify_starter_sites_latin1_to_utf8( $str );
 			}
 			// $str = ent2ncr(esc_html($str));
 			$str = '<![CDATA[' . str_replace( ']]>', ']]]]><![CDATA[>', $str ) . ']]>';

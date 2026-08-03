@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: importer, demo, starter sites, customify
 Requires at least: 5.0
 Tested up to: 7.0
-Stable tag: 0.0.18
+Stable tag: 0.0.19
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -38,6 +38,11 @@ Human-readable source and build tooling are available at [github.com/PressMaximu
 3. Open **Customify → Starter Sites** when the Customify theme is active. Otherwise, open the top-level **Customify Sites** menu.
 
 == Changelog ==
+
+= 0.0.19 =
+* Show the Customify requirement notice directly on the Starter Sites page when the theme is inactive.
+* Replace deprecated legacy text encoding with a WordPress 5.0 and PHP 7.4 compatible implementation.
+* Write release archives to the Git-ignored `dist` directory.
 
 = 0.0.18 =
 * Address WordPress.org review feedback for output escaping, plugin headers, core widget option documentation, and bundled Owl Carousel assets.
