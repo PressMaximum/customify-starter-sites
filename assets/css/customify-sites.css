@@ -177,7 +177,7 @@
 .cs-btn-circle-text {
   display: inline-block;
   color: #fff;
-  padding: 5px 10px;
+  padding: 0;
 }
 
 .cs-btn-circle:after {
@@ -371,19 +371,7 @@
   background: #f7f7f7;
   box-shadow: 0 1px 0 #ccc;
   vertical-align: top;
-  display: inline-block;
   text-decoration: none;
-  font-size: 13px;
-  line-height: 26px;
-  height: 28px;
-  margin: 0;
-  padding: 0 10px 1px;
-  cursor: pointer;
-  border-width: 1px;
-  border-style: solid;
-  -webkit-appearance: none;
-  border-radius: 3px;
-  white-space: nowrap;
 }
 
 .customify-sites-show-modal #customify-sites-filter, .customify-sites-show-modal #customify-sites-listing-wrapper, .customify-sites-show-modal .wrap {

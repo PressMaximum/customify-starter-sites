@@ -1,5 +1,7 @@
 <?php
 
+defined( 'ABSPATH' ) || exit;
+
 class Customify_Starter_Sites_WXR_Import_UI
 {
 	/**
@@ -21,8 +23,6 @@ class Customify_Starter_Sites_WXR_Import_UI
 	 */
 	public function __construct()
 	{
-		add_filter('upload_mimes', array($this, 'add_mime_type_xml'));
-
 		$this->counts = array(
 			'posts' => 0,
 			'media' => 0,
@@ -30,18 +30,6 @@ class Customify_Starter_Sites_WXR_Import_UI
 			'comments' => 0,
 			'terms' => 0
 		);
-	}
-
-	/**
-	 * Add .xml files as supported format in the uploader.
-	 *
-	 * @param array $mimes Already supported mime types.
-	 */
-	public function add_mime_type_xml($mimes)
-	{
-		$mimes = array_merge($mimes, array('xml' => 'application/xml'));
-
-		return $mimes;
 	}
 
 	/**
@@ -54,6 +42,17 @@ class Customify_Starter_Sites_WXR_Import_UI
 	 */
 	public function get_data_for_attachment($id)
 	{
+		$source_url = get_post_meta($id, '_customify_starter_source_url', true);
+		$file = get_attached_file($id);
+		if (
+			!$id
+			|| !is_string($file)
+			|| 'xml' !== strtolower(pathinfo($file, PATHINFO_EXTENSION))
+			|| !Customify_Starter_Sites_Ajax::is_safe_remote_url($source_url)
+		) {
+			return new WP_Error('wxr_importer.invalid_source', __('Invalid starter content attachment.', 'customify-starter-sites'));
+		}
+
 		$existing = get_post_meta($id, '_wxr_import_info');
 		if (!empty($existing)) {
 			$data = $existing[0];
@@ -61,8 +60,6 @@ class Customify_Starter_Sites_WXR_Import_UI
 			$this->version = $data->version;
 			return $data;
 		}
-
-		$file = get_attached_file($id);
 
 		$importer = $this->get_importer();
 		$data = $importer->get_preliminary_information($file);
@@ -85,30 +82,20 @@ class Customify_Starter_Sites_WXR_Import_UI
 		return $data;
 	}
 
-	function get_posts_by_title($page_title, $post_type)
-	{
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Importer needs a direct post ID lookup by title.
-		return $wpdb->get_col(
-			$wpdb->prepare(
-				"
-		SELECT ID
-		FROM $wpdb->posts
-		WHERE post_title = %s
-		AND post_type = %s
-	",
-				$page_title,
-				$post_type
-			)
-		);
-	}
-
-
 	public function import()
 	{
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce verified in Customify_Starter_Sites_Ajax::ajax_import_content() before import runs.
 		$this->id = isset( $_REQUEST['id'] ) ? absint( wp_unslash( $_REQUEST['id'] ) ) : 0;
+		$source_url = get_post_meta($this->id, '_customify_starter_source_url', true);
+		$file = get_attached_file($this->id);
+		if (
+			!$this->id
+			|| !is_string($file)
+			|| 'xml' !== strtolower(pathinfo($file, PATHINFO_EXTENSION))
+			|| !Customify_Starter_Sites_Ajax::is_safe_remote_url($source_url)
+		) {
+			wp_send_json_error(array('message' => __('Invalid starter content attachment.', 'customify-starter-sites')), 400);
+		}
 		// Download media files
 		$this->fetch_attachments = true;
 		$importer = $this->get_importer();
@@ -130,32 +117,39 @@ class Customify_Starter_Sites_WXR_Import_UI
 		add_action('wxr_importer.process_already_imported.term', array($this, 'imported_term'));
 		add_action('wxr_importer.processed.user', array($this, 'imported_user'));
 		add_action('wxr_importer.process_failed.user', array($this, 'imported_user'));
+		add_filter('wxr_importer.pre_process.post', array($this, 'sanitize_imported_post'), 10, 4);
 
-		$file = get_attached_file($this->id);
 		$err = $importer->import($file);
+		if (is_wp_error($err)) {
+			wp_send_json_error(array('message' => $err->get_error_message()), 400);
+		}
 		update_post_meta($this->id, '_wxr_importer_mapping', $importer->mapping);
 
-		// remove Hello World! post
-
-		$ids = $this->get_posts_by_title('Hello World!', 'post');
-		if (is_array($ids)) {
-			foreach ($ids as $id) {
-				wp_update_post(array('ID' => $id, 'post_status' => 'pending'));
-			}
-		}
-
-		$ids = $this->get_posts_by_title('Sample Page', 'page');
-		if (is_array($ids)) {
-			foreach ($ids as $id) {
-				wp_update_post(array('ID' => $id, 'post_status' => 'pending'));
-			}
-		}
-
-		ob_start();
-		ob_end_clean();
-		ob_end_flush();
-		ob_start();
 		wp_send_json($this->counts);
+	}
+
+	/**
+	 * Sanitize content received from the remote starter-site service before insertion.
+	 *
+	 * @param array $data Post data.
+	 * @return array
+	 */
+	public function sanitize_imported_post($data)
+	{
+		if (!is_array($data)) {
+			return array();
+		}
+		if (isset($data['post_title'])) {
+			$data['post_title'] = sanitize_text_field($data['post_title']);
+		}
+		if (isset($data['post_content'])) {
+			$data['post_content'] = wp_kses_post($data['post_content']);
+		}
+		if (isset($data['post_excerpt'])) {
+			$data['post_excerpt'] = wp_kses_post($data['post_excerpt']);
+		}
+
+		return $data;
 	}
 
 	function re_mapping_thumbnails()
@@ -192,7 +186,7 @@ class Customify_Starter_Sites_WXR_Import_UI
 		 *
 		 * @param array $options Options to pass to Customify_Starter_Sites_WXR_Importer::__construct
 		 */
-		return apply_filters('wxr_importer.admin.import_options', $options);
+		return apply_filters('wxr_importer.admin.import_options', $options); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 	}
 
 
@@ -205,7 +199,7 @@ class Customify_Starter_Sites_WXR_Import_UI
 	 */
 	protected function allow_fetch_attachments()
 	{
-		return apply_filters('import_allow_fetch_attachments', true);
+		return apply_filters('import_allow_fetch_attachments', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 	}
 
 	/**
@@ -216,7 +210,7 @@ class Customify_Starter_Sites_WXR_Import_UI
 	 */
 	protected function allow_create_users()
 	{
-		return apply_filters('import_allow_create_users', true);
+		return apply_filters('import_allow_create_users', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 	}
 
 	/**

@@ -188,7 +188,7 @@ module.exports = function (grunt) {
 
     replace: {
       theme_main: {
-        src: ["customify-sites.php"],
+        src: ["customify-starter-sites.php"],
         overwrite: true,
         replacements: [
           {

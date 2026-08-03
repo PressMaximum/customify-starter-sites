@@ -217,6 +217,7 @@ mkdir -p "${DEST}"
 RSYNC_EXCLUDES=(
 	# Repo / CI
 	'--exclude=.git/'
+	'--exclude=.gitignore'
 	'--exclude=.github/'
 	'--exclude=.gitlab-ci.yml'
 	'--exclude=.travis.yml'

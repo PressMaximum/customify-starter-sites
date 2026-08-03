@@ -6,9 +6,7 @@
  * it into a single managed `<style>` block at the END of `<head>` so
  * the cascade beats every earlier theme rule.
  *
- * Cross-origin: parent uses `*` as targetOrigin; we only act on
- * `{ type: 'fdi-preview-style', css }` messages so accidental
- * collisions with other postMessage senders stay safe.
+ * The bridge accepts messages only from a same-origin parent window.
  *
  * Intentionally dumb — every piece of styling logic (palette → CSS
  * vars, font @import lines, font-family overrides) lives in the
@@ -69,7 +67,7 @@
 
 	window.addEventListener( 'message', function ( event ) {
 		var data = event && event.data;
-		if ( ! data ) {
+		if ( ! data || event.source !== window.parent || event.origin !== window.location.origin ) {
 			return;
 		}
 		log( 'message received', data.type, 'from', event.origin );
@@ -86,7 +84,7 @@
 	// landing before this listener attached.
 	function announceReady() {
 		try {
-			window.parent.postMessage( { type: 'fdi-preview-ready' }, '*' );
+			window.parent.postMessage( { type: 'fdi-preview-ready' }, window.location.origin );
 			log( 'announced ready to parent' );
 		} catch ( e ) {
 			log( 'announce failed', e && e.message );

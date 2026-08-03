@@ -1,5 +1,7 @@
 <?php
 
+defined( 'ABSPATH' ) || exit;
+
 class Customify_Starter_Sites_WXR_Import_Info {
 	public $home;
 	public $siteurl;

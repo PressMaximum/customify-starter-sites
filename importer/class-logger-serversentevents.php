@@ -1,5 +1,7 @@
 <?php
 
+defined( 'ABSPATH' ) || exit;
+
 class Customify_Starter_Sites_Importer_Logger_ServerSentEvents extends Customify_Starter_Sites_Importer_Logger {
 	/**
 	 * Logs with an arbitrary level.

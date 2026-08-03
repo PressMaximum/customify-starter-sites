@@ -1,24 +1,23 @@
 <?php
 
+defined( 'ABSPATH' ) || exit;
+
 // phpcs:disable
 
 class Customify_Starter_Sites_Export {
 	function __construct( $args ) {
 
-		//$url = apply_filters( 'wp_get_attachment_url', $url, $post->ID );
-		// add_filter( 'wp_get_attachment_url', array( $this, 'wp_get_attachment_url' ), 95, 2 );
-		add_filter( 'rss2_head', array( $this, 'export_remove_rss_title' ), 95 );
-		add_filter( 'the_content_export', array( $this, 'the_content_export' ), 999 );
 		$from_customify = isset( $_GET['from_customify'] ) ? sanitize_key( wp_unslash( $_GET['from_customify'] ) ) : '';
 		if ( 'placeholder' === $from_customify ) {
+			add_filter( 'customify_import_placeholder_only', '__return_true' );
+			add_filter( 'rss2_head', array( $this, 'export_remove_rss_title' ), 95 );
+			add_filter( 'the_content_export', array( $this, 'the_content_export' ), 999 );
 			/**
 			 * @see export_wp
 			 */
-			update_option( 'customify_import_placeholder_only', true );
 			$this->export_wp( $args );
-			die();
+			exit;
         } else {
-			update_option( 'customify_import_placeholder_only', null );
 		    add_filter( 'export_wp_filename', array( $this, 'wp_export_filename' ) );
         }
 	}
@@ -35,20 +34,6 @@ class Customify_Starter_Sites_Export {
 	function wp_get_attachment_url( $url, $post_id = false ){
 		return Customify_Starter_Sites_Placeholder::get_instance()->wp_get_attachment_url( $url, $post_id );
     }
-
-	/**
-     * @see https://gist.github.com/vyspiansky/11285153
-     *
-	 * @param $html
-	 */
-    function get_image_url_inside_content( $html ) {
-
-	    preg_match_all( '@src="([^"]+)"@' , $html, $match );
-
-	    $src = array_pop($match);
-	    print_r($src);
-    }
-
 
 	function get_export_file_name(){
 		$sitename = sanitize_key( get_bloginfo( 'name' ) );
@@ -361,7 +346,7 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param array $post_ids Array of post IDs to filter the query by. Optional.
 		 */
-		function wxr_authors_list( array $post_ids = null ) {
+		function wxr_authors_list( ?array $post_ids = null ) {
 			global $wpdb;
 
 			if ( !empty( $post_ids ) ) {
@@ -651,7 +636,7 @@ class Customify_Starter_Sites_Export {
                     <wp:comment_id><?php echo intval( $c->comment_ID ); ?></wp:comment_id>
                     <wp:comment_author><?php echo wxr_cdata( $c->comment_author ); ?></wp:comment_author>
                     <wp:comment_author_email><?php echo wxr_cdata( $c->comment_author_email ); ?></wp:comment_author_email>
-                    <wp:comment_author_url><?php echo esc_url_raw( $c->comment_author_url ); ?></wp:comment_author_url>
+                    <wp:comment_author_url><?php echo esc_url( $c->comment_author_url ); ?></wp:comment_author_url>
                     <wp:comment_author_IP><?php echo wxr_cdata( $c->comment_author_IP ); ?></wp:comment_author_IP>
                     <wp:comment_date><?php echo wxr_cdata( $c->comment_date ); ?></wp:comment_date>
                     <wp:comment_date_gmt><?php echo wxr_cdata( $c->comment_date_gmt ); ?></wp:comment_date_gmt>

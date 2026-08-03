@@ -1,5 +1,7 @@
 <?php
 
+defined( 'ABSPATH' ) || exit;
+
 class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 	/**
 	 * Maximum supported WXR version
@@ -113,22 +115,14 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 	 * @return XMLReader|WP_Error Reader instance on success, error otherwise.
 	 */
 	protected function get_reader( $file ) {
-		// Avoid loading external entities for security
-		$old_value = null;
-		if ( function_exists( 'libxml_disable_entity_loader' ) ) {
-			// $old_value = libxml_disable_entity_loader( true );
-		}
-
 		$reader = new XMLReader();
-		$status = $reader->open( $file );
-
-		if ( ! is_null( $old_value ) ) {
-			// libxml_disable_entity_loader( $old_value );
-		}
+		$status = $reader->open( $file, null, LIBXML_NONET | LIBXML_COMPACT );
 
 		if ( ! $status ) {
 			return new WP_Error( 'wxr_importer.cannot_parse', __( 'Could not open the file for parsing', 'customify-starter-sites' ) );
 		}
+		$reader->setParserProperty( XMLReader::LOADDTD, false );
+		$reader->setParserProperty( XMLReader::SUBST_ENTITIES, false );
 
 		return $reader;
 	}
@@ -527,7 +521,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		 * Fires before the import process has begun. If you need to suspend
 		 * caching or heavy processing on hooks, do so here.
 		 */
-		do_action( 'import_start' );
+		do_action( 'import_start' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 	}
 
 	/**
@@ -554,7 +548,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		 * Fires after the import process has finished. If you need to update
 		 * your cache or re-enable processing, do so here.
 		 */
-		do_action( 'import_end' );
+		do_action( 'import_end' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 	}
 
 	/**
@@ -736,7 +730,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		 * @param array $comments Comments on the post.
 		 * @param array $terms Terms on the post.
 		 */
-		$data = apply_filters( 'wxr_importer.pre_process.post', $data, $meta, $comments, $terms );
+		$data = apply_filters( 'wxr_importer.pre_process.post', $data, $meta, $comments, $terms ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 		if ( empty( $data ) ) {
 			return false;
 		}
@@ -775,7 +769,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			 *
 			 * @param array $data Raw data imported for the post.
 			 */
-			do_action( 'wxr_importer.process_already_imported.post', $data );
+			do_action( 'wxr_importer.process_already_imported.post', $data ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 
 			// Even though this post already exists, new comments might need importing
 			$this->process_comments( $comments, $original_id, $data, $post_exists );
@@ -859,7 +853,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 				 * @param array $data Raw data imported for the post.
 				 * @param array $meta Raw meta data, already processed by {@see process_post_meta}.
 				 */
-				do_action( 'wxr_importer.process_skipped.post', $data, $meta );
+				do_action( 'wxr_importer.process_skipped.post', $data, $meta ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 				return false;
 			}
 			$remote_url = ! empty( $data['attachment_url'] ) ? $data['attachment_url'] : $data['guid'];
@@ -890,7 +884,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			 * @param array $comments Raw comment data, already processed by {@see process_comments}.
 			 * @param array $terms Raw term data, already processed.
 			 */
-			do_action( 'wxr_importer.process_failed.post', $post_id, $data, $meta, $comments, $terms );
+			do_action( 'wxr_importer.process_failed.post', $post_id, $data, $meta, $comments, $terms ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 			return false;
 		}
 
@@ -956,7 +950,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		 * @param array $comments Raw comment data, already processed by {@see process_comments}.
 		 * @param array $terms Raw term data, already processed.
 		 */
-		do_action( 'wxr_importer.processed.post', $post_id, $data, $meta, $comments, $terms );
+		do_action( 'wxr_importer.processed.post', $post_id, $data, $meta, $comments, $terms ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 	}
 
 	/**
@@ -1054,8 +1048,9 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			return $upload;
 		}
 
-		$info = wp_check_filetype( $upload['file'] );
-		if ( ! $info ) {
+		$info = wp_check_filetype_and_ext( $upload['file'], basename( $upload['file'] ) );
+		if ( empty( $info['ext'] ) || empty( $info['type'] ) ) {
+			wp_delete_file( $upload['file'] );
 			return new WP_Error( 'attachment_processing_error', __( 'Invalid file type',  'customify-starter-sites' ) );
 		}
 
@@ -1152,12 +1147,12 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			 * @param array $meta_item Meta data. (Return empty to skip.)
 			 * @param int $post_id Post the meta is attached to.
 			 */
-			$meta_item = apply_filters( 'wxr_importer.pre_process.post_meta', $meta_item, $post_id );
+			$meta_item = apply_filters( 'wxr_importer.pre_process.post_meta', $meta_item, $post_id ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 			if ( empty( $meta_item ) ) {
 				return false;
 			}
 
-			$key = apply_filters( 'import_post_meta_key', $meta_item['key'], $post_id, $post );
+			$key = apply_filters( 'import_post_meta_key', $meta_item['key'], $post_id, $post ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 			$value = false;
 
 			if ( '_edit_last' === $key ) {
@@ -1173,7 +1168,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			if ( $key ) {
 				// export gets meta straight from the DB so could have a serialized string
 				if ( ! $value ) {
-					$value = maybe_unserialize( $meta_item['value'] );
+					$value = customify_starter_sites_maybe_unserialize( $meta_item['value'], array( 'stdClass' ) );
 				}
 
 				if ( class_exists( 'Customify_Starter_Sites_Placeholder' ) ) {
@@ -1181,7 +1176,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 				}
 
 				add_post_meta( $post_id, $key, $value );
-				do_action( 'import_post_meta', $post_id, $key, $value );
+				do_action( 'import_post_meta', $post_id, $key, $value ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 
 				// if the post has a featured image, take note of this in case of remap
 				if ( '_thumbnail_id' === $key ) {
@@ -1297,7 +1292,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			 * @param array $comment Comment data. (Return empty to skip.)
 			 * @param int $post_id Post the comment is attached to.
 			 */
-			$comment = apply_filters( 'wxr_importer.pre_process.comment', $comment, $post_id );
+			$comment = apply_filters( 'wxr_importer.pre_process.comment', $comment, $post_id ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 			if ( empty( $comment ) ) {
 				return false;
 			}
@@ -1317,7 +1312,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 					 *
 					 * @param array $comment Raw data imported for the comment.
 					 */
-					do_action( 'wxr_importer.process_already_imported.comment', $comment );
+					do_action( 'wxr_importer.process_already_imported.comment', $comment ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 
 					$this->mapping['comment'][ $original_id ] = $existing;
 					continue;
@@ -1381,7 +1376,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 
 			// Process the meta items
 			foreach ( $meta as $meta_item ) {
-				$value = maybe_unserialize( $meta_item['value'] );
+				$value = customify_starter_sites_maybe_unserialize( $meta_item['value'], array( 'stdClass' ) );
 				add_comment_meta( $comment_id, wp_slash( $meta_item['key'] ), wp_slash( $value ) );
 			}
 
@@ -1393,7 +1388,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			 * @param array $meta Raw meta data, already processed by {@see process_post_meta}.
 			 * @param array $post_id Parent post ID.
 			 */
-			do_action( 'wxr_importer.processed.comment', $comment_id, $comment, $meta, $post_id );
+			do_action( 'wxr_importer.processed.comment', $comment_id, $comment, $meta, $post_id ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 
 			$num_comments++;
 		}
@@ -1494,7 +1489,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		 * @param array $data User data. (Return empty to skip.)
 		 * @param array $meta Meta data.
 		 */
-		$data = apply_filters( 'wxr_importer.pre_process.user', $data, $meta );
+		$data = apply_filters( 'wxr_importer.pre_process.user', $data, $meta ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 		if ( empty( $data ) ) {
 			return false;
 		}
@@ -1562,7 +1557,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			 * @param WP_Error $user_id Error object.
 			 * @param array $userdata Raw data imported for the user.
 			 */
-			do_action( 'wxr_importer.process_failed.user', $user_id, $userdata );
+			do_action( 'wxr_importer.process_failed.user', $user_id, $userdata ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 			return false;
 		}
 
@@ -1588,7 +1583,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		 * @param int $user_id New user ID.
 		 * @param array $userdata Raw data imported for the user.
 		 */
-		do_action( 'wxr_importer.processed.user', $user_id, $userdata );
+		do_action( 'wxr_importer.processed.user', $user_id, $userdata ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 	}
 
 	protected function parse_term_node( $node, $type = 'term' ) {
@@ -1634,8 +1629,8 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 				continue;
 			}
 
-			$key = array_search( $child->tagName, $tag_name );
-			if ( $key ) {
+			$key = array_search( $child->tagName, $tag_name, true );
+			if ( false !== $key ) {
 				$data[ $key ] = $child->textContent;
 			}
 		}
@@ -1659,7 +1654,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		 * @param array $data Term data. (Return empty to skip.)
 		 * @param array $meta Meta data.
 		 */
-		$data = apply_filters( 'wxr_importer.pre_process.term', $data, $meta );
+		$data = apply_filters( 'wxr_importer.pre_process.term', $data, $meta ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 		if ( empty( $data ) ) {
 			return false;
 		}
@@ -1676,7 +1671,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			 *
 			 * @param array $data Raw data imported for the term.
 			 */
-			do_action( 'wxr_importer.process_already_imported.term', $data );
+			do_action( 'wxr_importer.process_already_imported.term', $data ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 
 			$this->mapping['term'][ $mapping_key ] = $existing;
 			$this->mapping['term_id'][ $original_id ] = $existing;
@@ -1735,7 +1730,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			 * @param array $data Raw data imported for the term.
 			 * @param array $meta Meta data supplied for the term.
 			 */
-			do_action( 'wxr_importer.process_failed.term', $result, $data, $meta );
+			do_action( 'wxr_importer.process_failed.term', $result, $data, $meta ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 			return false;
 		}
 
@@ -1763,7 +1758,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		 * @param int $term_id New term ID.
 		 * @param array $data Raw data imported for the term.
 		 */
-		do_action( 'wxr_importer.processed.term', $term_id, $data );
+		do_action( 'wxr_importer.processed.term', $term_id, $data ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 	}
 
 	/**
@@ -1774,8 +1769,24 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 	 * @return array|WP_Error Local file location details on success, WP_Error otherwise
 	 */
 	protected function fetch_remote_file( $url, $post ) {
+		if ( is_string( $url ) && 'http' === wp_parse_url( $url, PHP_URL_SCHEME ) ) {
+			$url = set_url_scheme( $url, 'https' );
+		}
+		if ( ! class_exists( 'Customify_Starter_Sites_Ajax' ) || ! Customify_Starter_Sites_Ajax::is_safe_remote_url( $url ) ) {
+			return new WP_Error( 'import_file_error', __( 'Invalid remote attachment URL.', 'customify-starter-sites' ) );
+		}
+
 		// extract the file name and extension from the url
-		$file_name = basename( $url );
+		$file_name = sanitize_file_name( basename( (string) wp_parse_url( $url, PHP_URL_PATH ) ) );
+		$file_type = wp_check_filetype( $file_name, get_allowed_mime_types() );
+		if ( '' === $file_name || empty( $file_type['ext'] ) || empty( $file_type['type'] ) ) {
+			return new WP_Error( 'import_file_error', __( 'The remote attachment type is not allowed.', 'customify-starter-sites' ) );
+		}
+
+		$max_size = (int) $this->max_attachment_size();
+		if ( $max_size <= 0 ) {
+			$max_size = (int) wp_max_upload_size();
+		}
 
 		// get placeholder file in the upload dir with a unique, sanitized filename
 		$upload = wp_upload_bits( $file_name, null, '', $post['upload_date'] );
@@ -1784,10 +1795,16 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		}
 
 		// fetch the remote url and write it to the placeholder file
-		$response = wp_remote_get( $url, array(
-			'stream' => true,
-			'filename' => $upload['file'],
-		) );
+		$response = wp_safe_remote_get(
+			$url,
+			array(
+				'stream'              => true,
+				'filename'            => $upload['file'],
+				'timeout'             => 60,
+				'redirection'         => 3,
+				'limit_response_size' => $max_size + 1,
+			)
+		);
 
 		// request failed
 		if ( is_wp_error( $response ) ) {
@@ -1812,6 +1829,10 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 		}
 
 		$filesize = filesize( $upload['file'] );
+		if ( false === $filesize ) {
+			wp_delete_file( $upload['file'] );
+			return new WP_Error( 'import_file_error', __( 'Could not determine the downloaded file size.', 'customify-starter-sites' ) );
+		}
 		$headers = wp_remote_retrieve_headers( $response );
 
 		if ( isset( $headers['content-length'] ) && $filesize !== (int) $headers['content-length'] ) {
@@ -1824,8 +1845,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 			return new WP_Error( 'import_file_error', __( 'Zero size file downloaded',  'customify-starter-sites' ) );
 		}
 
-		$max_size = (int) $this->max_attachment_size();
-		if ( ! empty( $max_size ) && $filesize > $max_size ) {
+		if ( $filesize > $max_size ) {
 			wp_delete_file( $upload['file'] );
 			$message = sprintf( __( 'Remote file is too large, limit is %s',  'customify-starter-sites' ), size_format( $max_size ) ); // phpcs:ignore WordPress.WP.I18n.MissingTranslatorsComment, WordPress.WP.I18n.UnorderedPlaceholdersText	
 			return new WP_Error( 'import_file_error', $message );
@@ -2091,7 +2111,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 	public function is_valid_meta_key( $key ) {
 		// skip attachment metadata since we'll regenerate it from scratch
 		// skip _edit_lock as not relevant for import
-		if ( in_array( $key, array( '_wp_attached_file', '_wp_attachment_metadata', '_edit_lock' ) ) ) {
+		if ( in_array( $key, array( '_wp_attached_file', '_wp_attachment_metadata', '_edit_lock' ), true ) ) {
 			return false;
 		}
 
@@ -2105,7 +2125,7 @@ class Customify_Starter_Sites_WXR_Importer extends WP_Importer {
 	 * @return int Maximum attachment file size to import
 	 */
 	protected function max_attachment_size() {
-		return apply_filters( 'import_attachment_size_limit', 0 );
+		return apply_filters( 'import_attachment_size_limit', 0 ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 	}
 
 	/**

@@ -1,4 +1,7 @@
 <?php
+
+defined( 'ABSPATH' ) || exit;
+
 /**
  * Silent upgrader skin — load only after wp-admin/includes/class-wp-upgrader.php.
  *

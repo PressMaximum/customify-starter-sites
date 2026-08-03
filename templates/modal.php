@@ -1,3 +1,4 @@
+<?php defined( 'ABSPATH' ) || exit; ?>
 <script type="text/html" id="tpl-cs-item-modal">
   <div id="cs-modal-site--{{ data.slug }}" class="cs-modal-site customify-sites-modal-wrapper">
     <div class="cs-modal-outer">
@@ -9,13 +10,13 @@
           </div>
           <div class="cs-name">{{ data.title }}</div>
           <a href="#" data-slug="{{ data.slug }}" class="cs-open-preview button-secondary"><?php esc_html_e('Preview', 'customify-starter-sites'); ?></a>
-          <div class="cs-desc">{{{ data.desc }}}</div>
+          <div class="cs-desc">{{ data.desc }}</div>
         </div>
 
         <div class="cs-main">
           <ul class="cs-breadcrumb">
             <li data-step="overview" class="current"><?php esc_html_e('Import Overview', 'customify-starter-sites'); ?></li>
-            <li data-step="install_plugins"><?php esc_html_e('Install Plugins', 'customify-starter-sites'); ?></li>
+            <li data-step="install_plugins"><?php esc_html_e('Install & Activate Plugins', 'customify-starter-sites'); ?></li>
             <li data-step="import_content"><?php esc_html_e('Import Content', 'customify-starter-sites'); ?></li>
             <li data-step="import_options"><?php esc_html_e('Import Options', 'customify-starter-sites'); ?></li>
           </ul>
@@ -50,7 +51,7 @@
                   <path class="icon--checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"></path>
                 </svg>
               </div>
-              <h3 class="cs-text-center"><?php esc_html_e('Install Plugins', 'customify-starter-sites'); ?></h3>
+              <h3 class="cs-text-center"><?php esc_html_e('Install & Activate Plugins', 'customify-starter-sites'); ?></h3>
               <p class="cs-text-center">
                 <?php esc_html_e('Let\'s install some essential WordPress plugins to get your site up to speed.', 'customify-starter-sites'); ?>
               </p>
@@ -158,10 +159,10 @@
           <div class="cs-actions">
             <a href="#" class="cs-skip cs-hide button-secondary"><?php esc_html_e('Skip', 'customify-starter-sites'); ?></a>
             <span class="cs-action-buttons">
-              <a href="#" data-step="0" class="cs-right cs-do-start current cs-btn-circle-btn"><span class="cs-btn-circle"></span><span class="cs-btn-circle-text"><?php esc_html_e('Start Import', 'customify-starter-sites'); ?></span></a>
-              <a href="#" data-step="1" class="cs-right cs-do-install-plugins cs-btn-circle-btn"><span class="cs-btn-circle"></span><span class="cs-btn-circle-text"><?php esc_html_e('Install Plugins', 'customify-starter-sites'); ?></span></a>
-              <a href="#" data-step="2" class="cs-right cs-do-import-content cs-btn-circle-btn"><span class="cs-btn-circle"></span><span class="cs-btn-circle-text"><?php esc_html_e('Import Content', 'customify-starter-sites'); ?></span></a>
-              <a href="#" data-step="3" class="cs-right cs-do-import-options cs-btn-circle-btn"><span class="cs-btn-circle"></span><span class="cs-btn-circle-text"><?php esc_html_e('Import Options', 'customify-starter-sites'); ?></span></a>
+              <a href="#" data-step="0" class="cs-right cs-do-start current cs-btn-circle-btn button button-primary"><span class="cs-btn-circle"></span><span class="cs-btn-circle-text"><?php esc_html_e('Start Import', 'customify-starter-sites'); ?></span></a>
+              <a href="#" data-step="1" class="cs-right cs-do-install-plugins cs-btn-circle-btn button button-primary"><span class="cs-btn-circle"></span><span class="cs-btn-circle-text"><?php esc_html_e('Install & Activate Plugins', 'customify-starter-sites'); ?></span></a>
+              <a href="#" data-step="2" class="cs-right cs-do-import-content cs-btn-circle-btn button button-primary"><span class="cs-btn-circle"></span><span class="cs-btn-circle-text"><?php esc_html_e('Import Content', 'customify-starter-sites'); ?></span></a>
+              <a href="#" data-step="3" class="cs-right cs-do-import-options cs-btn-circle-btn button button-primary"><span class="cs-btn-circle"></span><span class="cs-btn-circle-text"><?php esc_html_e('Import Options', 'customify-starter-sites'); ?></span></a>
               <a href="<?php echo esc_url( home_url( '/' ) ); ?>" data-step="4" target="_blank" class="cs-right cs-do-view-site button-primary"><?php esc_html_e( 'View Your Website', 'customify-starter-sites' ); ?></a>
             </span>
           </div>

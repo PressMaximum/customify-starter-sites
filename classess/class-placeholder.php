@@ -1,4 +1,7 @@
 <?php
+
+defined( 'ABSPATH' ) || exit;
+
 class Customify_Starter_Sites_Placeholder {
 
 	public $placeholder_id = 0;
@@ -9,7 +12,12 @@ class Customify_Starter_Sites_Placeholder {
 	private static $_instance = null;
 
 	private function  init(){
-		if ( get_option( 'customify_import_placeholder_only' ) ) {
+		$placeholder_only = (bool) apply_filters(
+			'customify_import_placeholder_only',
+			(bool) get_option( 'customify_import_placeholder_only' )
+		);
+
+		if ( $placeholder_only ) {
 			$this->maybe_insert_placeholder();
 			$logo_id = get_theme_mod('custom_logo');
 			if ( $logo_id ) {
@@ -52,17 +60,28 @@ class Customify_Starter_Sites_Placeholder {
 	private function upload_placeholder_attachment( $name = '', $parent_id = 0 ){
 
 		// $filename should be the path to a file in the upload directory.
-		$filename = CUSTOMIFY_STARTER_SITES_PATH.$this->get_placeholder_img();
+		$filename = CUSTOMIFY_STARTER_SITES_PATH . ltrim( $this->get_placeholder_img(), '/' );
+		if ( ! is_readable( $filename ) ) {
+			return new WP_Error( 'placeholder_missing', __( 'The placeholder image could not be found.', 'customify-starter-sites' ) );
+		}
+
 		// Get the path to the upload directory.
 		$wp_upload_dir = wp_upload_dir();
+		if ( ! empty( $wp_upload_dir['error'] ) ) {
+			return new WP_Error( 'upload_directory_error', $wp_upload_dir['error'] );
+		}
 
 		$save_to_path =  $wp_upload_dir['path'] . '/' . basename( $filename );
 		$save_to_url =  $wp_upload_dir['url'] . '/' . basename( $filename );
 
 		global $wp_filesystem;
-		WP_Filesystem();
+		if ( ! WP_Filesystem() || ! $wp_filesystem ) {
+			return new WP_Error( 'filesystem_unavailable', __( 'The WordPress filesystem is unavailable.', 'customify-starter-sites' ) );
+		}
 
-		$wp_filesystem->copy( $filename, $save_to_path, true );
+		if ( ! $wp_filesystem->copy( $filename, $save_to_path, true ) ) {
+			return new WP_Error( 'placeholder_copy_failed', __( 'The placeholder image could not be copied.', 'customify-starter-sites' ) );
+		}
 
 		// The ID of the post this attachment is for.
 		$parent_post_id = 0;
@@ -81,6 +100,9 @@ class Customify_Starter_Sites_Placeholder {
 
 		// Insert the attachment.
 		$attach_id = wp_insert_attachment( $attachment, $save_to_path, $parent_post_id );
+		if ( is_wp_error( $attach_id ) ) {
+			return $attach_id;
+		}
 
 		// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
 		require_once( ABSPATH . 'wp-admin/includes/image.php' );
@@ -89,11 +111,11 @@ class Customify_Starter_Sites_Placeholder {
 		$attach_data = wp_generate_attachment_metadata( $attach_id, $save_to_path );
 		wp_update_attachment_metadata( $attach_id, $attach_data );
 
-		if ( ! is_wp_error( $attach_id ) ) {
-			$this->placeholder_post = get_post( $attach_id );
-			$this->placeholder_id = $attach_id;
-			$this->placeholder_url = wp_get_attachment_url( $attach_id );
-		}
+		$this->placeholder_post = get_post( $attach_id );
+		$this->placeholder_id = $attach_id;
+		$this->placeholder_url = wp_get_attachment_url( $attach_id );
+
+		return $attach_id;
 
 	}
 
@@ -110,7 +132,7 @@ class Customify_Starter_Sites_Placeholder {
 			if ( is_array( $ext ) ) {
 				$ext = end( $ext );
 				$ext = strtolower( $ext );
-				if ( $ext && in_array( $ext, array( 'png', 'jpeg', 'jpg' ) ) ) {
+				if ( $ext && in_array( $ext, array( 'png', 'jpeg', 'jpg' ), true ) ) {
 					$url = $this->placeholder_url;
 				}
 			}
@@ -165,8 +187,6 @@ class Customify_Starter_Sites_Placeholder {
 				$data->{ $index } = $this->progress_beaver_data( $_d );
 			}
 		} elseif ( is_array( $data ) ) {
-
-			//var_dump( $data );
 
 			if( isset( $data['photo'] ) &&  isset( $data['photo_src'] )  ) {
 				$data['photo_src'] = $this->placeholder_url;
@@ -258,7 +278,7 @@ class Customify_Starter_Sites_Placeholder {
 			$array = explode( '.', $matches[1] );
 			$ext   = end( $array );
 			$ext   = strtolower( $ext );
-			if ( $ext && in_array( $ext, array( 'png', 'jpeg', 'jpg' ) ) ) {
+			if ( $ext && in_array( $ext, array( 'png', 'jpeg', 'jpg' ), true ) ) {
 				return str_replace( $matches[1], $this->placeholder_url, $matches[0] );
 			}
 
@@ -327,7 +347,7 @@ class Customify_Starter_Sites_Placeholder {
 				$meta->meta_value = $this->placeholder_id;
 				break;
 			case '_product_image_gallery':
-				$value = maybe_unserialize( $meta -> meta_value );
+				$value = customify_starter_sites_maybe_unserialize( $meta->meta_value, false );
 				if ( is_string( $value ) ) {
 					$value = explode( ',', $value );
 					$n = count( $value );
@@ -337,7 +357,7 @@ class Customify_Starter_Sites_Placeholder {
 
 				break;
 			case '_customify_page_header_image':
-				$value = maybe_unserialize( $meta -> meta_value );
+				$value = customify_starter_sites_maybe_unserialize( $meta->meta_value, false );
 				if ( is_array( $value ) ) {
 					$value['id'] = $this->placeholder_id;
 					$value['url'] = $this->placeholder_url;
@@ -350,14 +370,14 @@ class Customify_Starter_Sites_Placeholder {
 				// $meta->meta_value = '';
 				$value = json_decode( $meta->meta_value , true );
 				$value = $this->progress_elementor_data( $value );
-				$meta->meta_value = json_encode( $value ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode
+				$meta->meta_value = wp_json_encode( $value );
 				break;
 
 			case '_fl_builder_data':
 			case '_fl_builder_data_settings':
 			case '_fl_builder_draft_settings':
 			case '_fl_builder_draft':
-				$value = maybe_unserialize( $meta->meta_value );
+				$value = customify_starter_sites_maybe_unserialize( $meta->meta_value, array( 'stdClass' ) );
 				if ( is_object( $value ) || is_array( $value ) ) {
 					$value            = $this->progress_beaver_data( $value );
 					$meta->meta_value = serialize( $value );

@@ -1,26 +1,21 @@
 <?php
+defined( 'ABSPATH' ) || exit;
 
-Class Customify_Starter_Sites {
+class Customify_Starter_Sites {
     static $_instance = null;
     const THEME_NAME = 'customify';
+	private $menu_hook = '';
 
 
-    function admin_scripts( $id ){
-        if( $id == 'appearance_page_customify-starter-sites' ){
+	function admin_scripts( $id ){
+		if ( $id === $this->menu_hook ) {
+			wp_localize_script('jquery', 'Customify_Starter_Sites',  $this->get_localize_script() );
+			wp_enqueue_style('owl.carousel', CUSTOMIFY_STARTER_SITES_URL.'/assets/css/owl.carousel.css', array(), CUSTOMIFY_STARTER_SITES_VERSION );
+			wp_enqueue_style('owl.theme.default', CUSTOMIFY_STARTER_SITES_URL.'/assets/css/owl.theme.default.css', array(), CUSTOMIFY_STARTER_SITES_VERSION );
+			wp_enqueue_style("customify-starter-sites", CUSTOMIFY_STARTER_SITES_URL.'/assets/css/customify-sites.css', array(), CUSTOMIFY_STARTER_SITES_VERSION );
 
-            if( ! function_exists('get_plugin_data') ){
-                require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
-            }
-            $plugin_data = get_plugin_data( __FILE__ );
-
-
-            wp_localize_script('jquery', 'Customify_Starter_Sites',  $this->get_localize_script() );
-            wp_enqueue_style('owl.carousel', CUSTOMIFY_STARTER_SITES_URL.'/assets/css/owl.carousel.css', [], $plugin_data['Version'] );
-            wp_enqueue_style('owl.theme.default', CUSTOMIFY_STARTER_SITES_URL.'/assets/css/owl.theme.default.css', [], $plugin_data['Version'] );
-            wp_enqueue_style("customify-starter-sites", CUSTOMIFY_STARTER_SITES_URL.'/assets/css/customify-sites.css', [], $plugin_data['Version'] );
-
-            wp_enqueue_script('owl.carousel', CUSTOMIFY_STARTER_SITES_URL.'/assets/js/owl.carousel.min.js',  array( 'jquery' ), $plugin_data['Version'], true );
-            wp_enqueue_script("customify-starter-sites", CUSTOMIFY_STARTER_SITES_URL.'/assets/js/backend.js',  array( 'jquery', 'underscore' ), $plugin_data['Version'], true );
+			wp_enqueue_script('owl.carousel', CUSTOMIFY_STARTER_SITES_URL.'/assets/js/owl.carousel.js',  array( 'jquery' ), CUSTOMIFY_STARTER_SITES_VERSION, true );
+			wp_enqueue_script("customify-starter-sites", CUSTOMIFY_STARTER_SITES_URL.'/assets/js/backend.js',  array( 'jquery', 'underscore' ), CUSTOMIFY_STARTER_SITES_VERSION, true );
         }
     }
 
@@ -34,9 +29,9 @@ Class Customify_Starter_Sites {
         return self::$_instance;
     }
 
-    function admin_notice( $hook ) {
-        $screen = get_current_screen();
-        if( $screen->id != 'appearance_page_customify-starter-sites' && $screen->id != 'themes' ) {
+	function admin_notice() {
+		$screen = get_current_screen();
+		if ( ! $screen || ( $screen->id !== $this->menu_hook && $screen->id !== 'themes' ) ) {
             return '';
         }
 
@@ -70,13 +65,42 @@ Class Customify_Starter_Sites {
         <?php
     }
 
-    static function get_api_url(){
-        return apply_filters( 'customify_sites/api_url', 'https://customifysites.com/wp-json/wp/v2.1/sites/' );
-    }
+	static function get_api_url(){
+		$default = 'https://customifysites.com/wp-json/wp/v2.1/sites/';
+		$url     = esc_url_raw( apply_filters( 'customify_sites/api_url', $default ), array( 'https' ) );
 
-    function add_menu() {
-        add_theme_page(__( 'Customify Sites', 'customify-starter-sites'), __( 'Customify Sites', 'customify-starter-sites' ), 'edit_theme_options', "customify-starter-sites", array( $this, 'page' ));
-    }
+		if ( ! $url || ! wp_http_validate_url( $url ) ) {
+			return $default;
+		}
+
+		return $url;
+	}
+
+	function add_menu() {
+		$page_title = __( 'Customify Sites', 'customify-starter-sites' );
+
+		if ( get_template() === self::THEME_NAME ) {
+			$this->menu_hook = add_submenu_page(
+				'customify',
+				$page_title,
+				__( 'Starter Sites', 'customify-starter-sites' ),
+				'manage_options',
+				'customify-starter-sites',
+				array( $this, 'page' )
+			);
+			return;
+		}
+
+		$this->menu_hook = add_menu_page(
+			$page_title,
+			$page_title,
+			'manage_options',
+			'customify-starter-sites',
+			array( $this, 'page' ),
+			'dashicons-layout',
+			59
+		);
+	}
 
     function page(){
         echo '<div class="wrap">';

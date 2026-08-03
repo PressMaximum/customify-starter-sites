@@ -3,6 +3,8 @@
  * Silent AJAX plugin installer/activator for starter site demos.
  */
 
+defined( 'ABSPATH' ) || exit;
+
 class Customify_Starter_Sites_Plugin {
 
 	/**

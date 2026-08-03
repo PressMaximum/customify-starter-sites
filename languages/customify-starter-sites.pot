@@ -2,494 +2,576 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Customify Starter Sites 0.0.16\n"
-"Report-Msgid-Bugs-To: "
-"https://wordpress.org/support/plugin/customify-starter-sites\n"
-"POT-Creation-Date: 2026-04-03 13:09:52+00:00\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=utf-8\n"
-"Content-Transfer-Encoding: 8bit\n"
+"Project-Id-Version: Customify Starter Sites 0.0.18\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/customify-starter-"
+"sites\n"
+"POT-Creation-Date: 2026-08-03 10:34+0700\n"
 "PO-Revision-Date: 2026-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Poedit-Country: United States\n"
-"X-Poedit-SourceCharset: UTF-8\n"
-"X-Poedit-KeywordsList: "
-"__;_e;_x:1,2c;_ex:1,2c;_n:1,2;_nx:1,2,4c;_n_noop:1,2;_nx_noop:1,2,3c;esc_"
-"attr__;esc_html__;esc_attr_e;esc_html_e;esc_attr_x:1,2c;esc_html_x:1,2c;\n"
-"X-Poedit-Basepath: ../\n"
-"X-Poedit-SearchPath-0: .\n"
-"X-Poedit-Bookmarks: \n"
-"X-Textdomain-Support: yes\n"
-"X-Generator: grunt-wp-i18n 1.0.4\n"
+"X-Generator: GNU gettext xgettext\n"
 
-#: classess/class-ajax.php:467
+#: classess/class-ajax.php:285
+msgid "Access denied."
+msgstr ""
+
+#: classess/class-ajax.php:441
+msgid "Invalid starter site."
+msgstr ""
+
+#: classess/class-ajax.php:463
+msgid "The starter content could not be downloaded."
+msgstr ""
+
+#: classess/class-ajax.php:473
+msgid "The starter configuration could not be downloaded."
+msgstr ""
+
+#: classess/class-ajax.php:504
+#, php-format
 msgid "%d post (including CPT)"
 msgid_plural "%d posts (including CPTs)"
 msgstr[0] ""
 msgstr[1] ""
 
-#: classess/class-ajax.php:468
+#: classess/class-ajax.php:505
+#, php-format
 msgid "%d media item"
 msgid_plural "%d media items"
 msgstr[0] ""
 msgstr[1] ""
 
-#: classess/class-ajax.php:469
+#: classess/class-ajax.php:506
+#, php-format
 msgid "%d user"
 msgid_plural "%d users"
 msgstr[0] ""
 msgstr[1] ""
 
-#: classess/class-ajax.php:470
+#: classess/class-ajax.php:507
+#, php-format
 msgid "%d term"
 msgid_plural "%d terms"
 msgstr[0] ""
 msgstr[1] ""
 
-#: classess/class-ajax.php:471
+#: classess/class-ajax.php:508
+#, php-format
 msgid "%d comment"
 msgid_plural "%d comments"
 msgstr[0] ""
 msgstr[1] ""
 
-#: classess/class-ajax.php:742
+#: classess/class-ajax.php:667
+msgid "Invalid starter configuration attachment."
+msgstr ""
+
+#: classess/class-ajax.php:854
 msgid "Invalid image URL."
 msgstr ""
 
-#: classess/class-ajax.php:746
+#: classess/class-ajax.php:858
 msgid "Invalid image file."
 msgstr ""
 
-#: classess/class-sites.php:60 classess/class-sites.php:83
+#: classess/class-ajax.php:996
+msgid "The download URL is missing."
+msgstr ""
+
+#: classess/class-ajax.php:999
+msgid "The download URL is not allowed."
+msgstr ""
+
+#: classess/class-ajax.php:1005
+msgid "Only XML and JSON starter files are allowed."
+msgstr ""
+
+#: classess/class-ajax.php:1018
+msgid "The starter file could not be downloaded."
+msgstr ""
+
+#: classess/class-placeholder.php:65
+msgid "The placeholder image could not be found."
+msgstr ""
+
+#: classess/class-placeholder.php:79
+msgid "The WordPress filesystem is unavailable."
+msgstr ""
+
+#: classess/class-placeholder.php:83
+msgid "The placeholder image could not be copied."
+msgstr ""
+
+#. translators: plugin slug
+#: classess/class-plugin.php:118
+#, php-format
+msgid "Could not locate plugin \"%s\" on wordpress.org."
+msgstr ""
+
+#: classess/class-plugin.php:153
+msgid "Plugin installation failed."
+msgstr ""
+
+#: classess/class-plugin.php:166
+msgid "Plugin installed but the main plugin file could not be detected."
+msgstr ""
+
+#: classess/class-plugin.php:209
+msgid "Plugin is not installed."
+msgstr ""
+
+#: classess/class-plugin.php:219
+msgid "Plugin file is missing."
+msgstr ""
+
+#: classess/class-sites.php:55 classess/class-sites.php:107
 msgid "Customify Site Library"
 msgstr ""
 
-#: classess/class-sites.php:61
+#: classess/class-sites.php:56
 msgid "requires"
 msgstr ""
 
-#: classess/class-sites.php:62
+#: classess/class-sites.php:57
 msgid "Customify"
 msgstr ""
 
-#: classess/class-sites.php:63
+#: classess/class-sites.php:58
 msgid "theme to be activated to work."
 msgstr ""
 
-#: classess/class-sites.php:65
+#: classess/class-sites.php:60
 msgid "Install & Activate Now"
 msgstr ""
 
-#: classess/class-sites.php:78
+#: classess/class-sites.php:80
 msgid "Customify Sites"
 msgstr ""
 
-#: classess/class-sites.php:169
+#: classess/class-sites.php:86
+msgid "Starter Sites"
+msgstr ""
+
+#: classess/class-sites.php:145
+msgctxt "plugin-name"
+msgid "Customify Pro"
+msgstr ""
+
+#: classess/class-sites.php:147
+msgctxt "plugin-name"
+msgid "Elementor"
+msgstr ""
+
+#: classess/class-sites.php:148
+msgctxt "plugin-name"
+msgid "Elementor Pro"
+msgstr ""
+
+#: classess/class-sites.php:149
+msgctxt "plugin-name"
+msgid "Beaver Builder"
+msgstr ""
+
+#: classess/class-sites.php:150
+msgctxt "plugin-name"
+msgid "Contact Form 7"
+msgstr ""
+
+#: classess/class-sites.php:152
+msgctxt "plugin-name"
+msgid "Breadcrumb NavXT"
+msgstr ""
+
+#: classess/class-sites.php:153
+msgctxt "plugin-name"
+msgid "JetPack"
+msgstr ""
+
+#: classess/class-sites.php:154
+msgctxt "plugin-name"
+msgid "Mega menu"
+msgstr ""
+
+#: classess/class-sites.php:155
+msgctxt "plugin-name"
+msgid "Polylang"
+msgstr ""
+
+#: classess/class-sites.php:156
+msgctxt "plugin-name"
+msgid "WooCommerce"
+msgstr ""
+
+#: classess/class-sites.php:157
+msgctxt "plugin-name"
+msgid "Give – Donation Plugin and Fundraising Platform"
+msgstr ""
+
+#: classess/class-sites.php:193
 msgid "Try Again"
 msgstr ""
 
-#: classess/class-sites.php:170
+#: classess/class-sites.php:194
 msgid "Pro only"
 msgstr ""
 
-#: importer/class-wxr-import-ui.php:77
+#: importer/class-wxr-import-ui.php:53 importer/class-wxr-import-ui.php:97
+msgid "Invalid starter content attachment."
+msgstr ""
+
+#: importer/class-wxr-import-ui.php:74
 msgid "Could not cache information on the import."
 msgstr ""
 
-#: importer/class-wxr-importer.php:130
+#: importer/class-wxr-importer.php:122
 msgid "Could not open the file for parsing"
 msgstr ""
 
-#: importer/class-wxr-importer.php:166 importer/class-wxr-importer.php:282
-#: importer/class-wxr-importer.php:355
+#: importer/class-wxr-importer.php:160 importer/class-wxr-importer.php:276
+#: importer/class-wxr-importer.php:349
+#, php-format
 msgid ""
 "This WXR file (version %s) is newer than the importer (version %s) and may "
 "not be supported. Please consider updating."
 msgstr ""
 
-#: importer/class-wxr-importer.php:505
+#: importer/class-wxr-importer.php:499
 msgid "The file does not exist, please try again."
 msgstr ""
 
-#: importer/class-wxr-importer.php:568
+#: importer/class-wxr-importer.php:562
 msgid "Invalid author mapping"
 msgstr ""
 
-#: importer/class-wxr-importer.php:670
+#: importer/class-wxr-importer.php:664
 msgid "Cannot import auto-draft posts"
 msgstr ""
 
-#: importer/class-wxr-importer.php:758
+#: importer/class-wxr-importer.php:752
+#, php-format
 msgid "Failed to import \"%s\": Invalid post type %s"
 msgstr ""
 
-#: importer/class-wxr-importer.php:768
+#: importer/class-wxr-importer.php:762
+#, php-format
 msgid "%s \"%s\" already exists."
 msgstr ""
 
-#: importer/class-wxr-importer.php:853
+#: importer/class-wxr-importer.php:847
+#, php-format
 msgid "Skipping attachment \"%s\", fetching attachments disabled"
 msgstr ""
 
-#: importer/class-wxr-importer.php:878
+#: importer/class-wxr-importer.php:872
+#, php-format
 msgid "Failed to import \"%1s\" (%2s)"
 msgstr ""
 
-#: importer/class-wxr-importer.php:910
+#: importer/class-wxr-importer.php:904
+#, php-format
 msgid "Imported \"%s\" (%s)"
 msgstr ""
 
-#: importer/class-wxr-importer.php:915
+#: importer/class-wxr-importer.php:909
+#, php-format
 msgid "Post %d remapped to %d"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1059
+#: importer/class-wxr-importer.php:1054
 msgid "Invalid file type"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1554
+#: importer/class-wxr-importer.php:1549
+#, php-format
 msgid "Failed to import user \"%s\""
 msgstr ""
 
-#: importer/class-wxr-importer.php:1575
+#: importer/class-wxr-importer.php:1570
+#, php-format
 msgid "Imported user \"%s\""
 msgstr ""
 
-#: importer/class-wxr-importer.php:1579
+#: importer/class-wxr-importer.php:1574
+#, php-format
 msgid "User %1d remapped to %2d"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1724
+#: importer/class-wxr-importer.php:1719
+#, php-format
 msgid "Failed to import %1s %2s"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1748
+#: importer/class-wxr-importer.php:1743
+#, php-format
 msgid "Imported \"%1s\" (%2s)"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1753
+#: importer/class-wxr-importer.php:1748
+#, php-format
 msgid "Term %1d remapped to %2d"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1806
+#: importer/class-wxr-importer.php:1776
+msgid "Invalid remote attachment URL."
+msgstr ""
+
+#: importer/class-wxr-importer.php:1783
+msgid "The remote attachment type is not allowed."
+msgstr ""
+
+#: importer/class-wxr-importer.php:1823
+#, php-format
 msgid "Remote server returned %1$d %2$s for %3$s"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1819
+#: importer/class-wxr-importer.php:1834
+msgid "Could not determine the downloaded file size."
+msgstr ""
+
+#: importer/class-wxr-importer.php:1840
 msgid "Remote file is incorrect size"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1824
+#: importer/class-wxr-importer.php:1845
 msgid "Zero size file downloaded"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1830
+#: importer/class-wxr-importer.php:1850
+#, php-format
 msgid "Remote file is too large, limit is %s"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1852
+#: importer/class-wxr-importer.php:1872
+#, php-format
 msgid "Running post-processing for post %d"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1865
+#: importer/class-wxr-importer.php:1885
+#, php-format
 msgid "Could not find the post parent for \"%s\" (post #%d)"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1870
+#: importer/class-wxr-importer.php:1890
+#, php-format
 msgid "Post %d was imported with parent %d, but could not be found"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1884
+#: importer/class-wxr-importer.php:1904
+#, php-format
 msgid "Could not find the author for \"%s\" (post #%d)"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1889
+#: importer/class-wxr-importer.php:1909
+#, php-format
 msgid "Post %d was imported with author \"%s\", but could not be found"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1915
+#: importer/class-wxr-importer.php:1935
+#, php-format
 msgid "Post %d was marked for post-processing, but none was required."
 msgstr ""
 
-#: importer/class-wxr-importer.php:1926
+#: importer/class-wxr-importer.php:1946
+#, php-format
 msgid "Could not update \"%s\" (post #%d) with mapped data"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1971
+#: importer/class-wxr-importer.php:1991
+#, php-format
 msgid "Could not find the menu object for \"%s\" (post #%d)"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1976
+#: importer/class-wxr-importer.php:1996
+#, php-format
 msgid ""
 "Post %d was imported with object \"%d\" of type \"%s\", but could not be "
 "found"
 msgstr ""
 
-#: importer/class-wxr-importer.php:1998
+#: importer/class-wxr-importer.php:2018
+#, php-format
 msgid "Could not find the comment parent for comment #%d"
 msgstr ""
 
-#: importer/class-wxr-importer.php:2002
+#: importer/class-wxr-importer.php:2022
+#, php-format
 msgid "Comment %d was imported with parent %d, but could not be found"
 msgstr ""
 
-#: importer/class-wxr-importer.php:2016
+#: importer/class-wxr-importer.php:2036
+#, php-format
 msgid "Could not find the author for comment #%d"
 msgstr ""
 
-#: importer/class-wxr-importer.php:2020
+#: importer/class-wxr-importer.php:2040
+#, php-format
 msgid "Comment %d was imported with author %d, but could not be found"
 msgstr ""
 
-#: importer/class-wxr-importer.php:2037
+#: importer/class-wxr-importer.php:2057
+#, php-format
 msgid "Could not update comment #%d with mapped data"
 msgstr ""
 
-#: importer/parsers/class-wxr-parser-regex.php:102
-#: importer/parsers/class-wxr-parser-simplexml.php:46
-#: importer/parsers/class-wxr-parser-simplexml.php:52
-#: importer/parsers/class-wxr-parser-xml.php:110
-msgid "This does not appear to be a WXR file, missing/invalid WXR version number"
-msgstr ""
-
-#: importer/parsers/class-wxr-parser-simplexml.php:33
-#: importer/parsers/class-wxr-parser-simplexml.php:41
-#: importer/parsers/class-wxr-parser.php:45
-msgid "There was an error when reading this WXR file"
-msgstr ""
-
-#: importer/parsers/class-wxr-parser.php:46
-msgid ""
-"Details are shown above. The importer will now try again with a different "
-"parser..."
-msgstr ""
-
-#: templates/dashboard.php:12
+#: templates/dashboard.php:10
 msgid "All"
 msgstr ""
 
-#: templates/dashboard.php:15
+#: templates/dashboard.php:13
 msgid "Search Themes"
 msgstr ""
 
-#: templates/dashboard.php:15
+#: templates/dashboard.php:13
 msgid "Search sites..."
 msgstr ""
 
-#: templates/dashboard.php:27
+#: templates/dashboard.php:25
 msgid "Pro"
 msgstr ""
 
-#: templates/dashboard.php:32 templates/modal.php:11
+#: templates/dashboard.php:30 templates/modal.php:12
 msgid "Preview"
 msgstr ""
 
-#: templates/dashboard.php:33
+#: templates/dashboard.php:31
 msgid "Details"
 msgstr ""
 
-#: templates/dashboard.php:44
+#: templates/dashboard.php:42
 msgid "No sites found. Try a different search."
 msgstr ""
 
-#: templates/modal.php:4
+#: templates/modal.php:5
 msgid "Back to site library"
 msgstr ""
 
-#: templates/modal.php:17
+#: templates/modal.php:18
 msgid "Import Overview"
 msgstr ""
 
-#: templates/modal.php:18 templates/modal.php:53 templates/modal.php:162
-msgid "Install Plugins"
+#: templates/modal.php:19 templates/modal.php:54 templates/modal.php:163
+msgid "Install & Activate Plugins"
 msgstr ""
 
-#: templates/modal.php:19 templates/modal.php:74 templates/modal.php:163
+#: templates/modal.php:20 templates/modal.php:75 templates/modal.php:164
 msgid "Import Content"
 msgstr ""
 
-#: templates/modal.php:20 templates/modal.php:115 templates/modal.php:164
+#: templates/modal.php:21 templates/modal.php:116 templates/modal.php:165
 msgid "Import Options"
 msgstr ""
 
-#: templates/modal.php:34
+#: templates/modal.php:35
 msgid "Hi! Welcome back"
 msgstr ""
 
-#: templates/modal.php:35
+#: templates/modal.php:36
 msgid ""
 "You may have already run this site import wizard. If you would like to "
 "proceed anyway, click on the \"Start Import\" button below."
 msgstr ""
 
-#: templates/modal.php:37
+#: templates/modal.php:38
 msgid "Import placeholder image."
 msgstr ""
 
-#: templates/modal.php:40
+#: templates/modal.php:41
 msgid "Oops! Could not download demo content xml and config files."
 msgstr ""
 
-#: templates/modal.php:55
-msgid "Let's install some essential WordPress plugins to get your site up to speed."
+#: templates/modal.php:56
+msgid ""
+"Let's install some essential WordPress plugins to get your site up to speed."
 msgstr ""
 
-#: templates/modal.php:60
+#: templates/modal.php:61
 msgid "The following plugins need to be installed and activated manually."
 msgstr ""
 
-#: templates/modal.php:75
+#: templates/modal.php:76
 msgid ""
 "Let's import content to your website, to help you get familiar with the "
 "theme."
 msgstr ""
 
-#: templates/modal.php:117
+#: templates/modal.php:118
 msgid "This step will import the theme options, menus and widgets"
 msgstr ""
 
-#: templates/modal.php:123
+#: templates/modal.php:124
 msgid "Customize Options"
 msgstr ""
 
-#: templates/modal.php:128
+#: templates/modal.php:129
 msgid "Widgets"
 msgstr ""
 
-#: templates/modal.php:133
+#: templates/modal.php:134
 msgid "Options"
 msgstr ""
 
-#: templates/modal.php:147
+#: templates/modal.php:148
 msgid "All done. Have fun!"
 msgstr ""
 
-#: templates/modal.php:148
-msgid "Your theme has been all set up. Enjoy your new theme by the WordPress team."
-msgstr ""
-
-#: templates/modal.php:150
-msgid "Explore WordPress"
+#: templates/modal.php:149
+msgid ""
+"Your theme has been all set up. Enjoy your new theme by the WordPress team."
 msgstr ""
 
 #: templates/modal.php:151
-msgid "Get Theme Support"
+msgid "Explore WordPress"
 msgstr ""
 
 #: templates/modal.php:152
+msgid "Get Theme Support"
+msgstr ""
+
+#: templates/modal.php:153
 msgid "Start Customizing"
 msgstr ""
 
-#: templates/modal.php:159
+#: templates/modal.php:160
 msgid "Skip"
 msgstr ""
 
-#: templates/modal.php:161
+#: templates/modal.php:162
 msgid "Start Import"
 msgstr ""
 
-#: templates/modal.php:165
+#: templates/modal.php:166
 msgid "View Your Website"
 msgstr ""
 
-#: templates/preview.php:12
-msgid "Import"
+#: templates/preview.php:8
+msgid "Starter site preview"
 msgstr ""
 
 #: templates/preview.php:13
+msgid "Import"
+msgstr ""
+
+#: templates/preview.php:14
 msgid "Close preview"
 msgstr ""
 
-#: templates/preview.php:15
+#: templates/preview.php:16
 msgid "Previous demo"
 msgstr ""
 
-#: templates/preview.php:17
+#: templates/preview.php:18
 msgid "Desktop view"
 msgstr ""
 
-#: templates/preview.php:18
+#: templates/preview.php:19
 msgid "Tablet view"
 msgstr ""
 
-#: templates/preview.php:19
+#: templates/preview.php:20
 msgid "Phone view"
-msgstr ""
-
-#. Plugin Name of the plugin/theme
-msgid "Customify Starter Sites"
-msgstr ""
-
-#. Plugin URI of the plugin/theme
-msgid "https://wpcustomify.com"
-msgstr ""
-
-#. Description of the plugin/theme
-msgid "Import free sites build with Customify theme."
-msgstr ""
-
-#. Author of the plugin/theme
-msgid "pressmaximum"
-msgstr ""
-
-#. Author URI of the plugin/theme
-msgid "https://pressmaximum.com/customify"
-msgstr ""
-
-#: classess/class-sites.php:121
-msgctxt "plugin-name"
-msgid "Customify Pro"
-msgstr ""
-
-#: classess/class-sites.php:123
-msgctxt "plugin-name"
-msgid "Elementor"
-msgstr ""
-
-#: classess/class-sites.php:124
-msgctxt "plugin-name"
-msgid "Elementor Pro"
-msgstr ""
-
-#: classess/class-sites.php:125
-msgctxt "plugin-name"
-msgid "Beaver Builder"
-msgstr ""
-
-#: classess/class-sites.php:126
-msgctxt "plugin-name"
-msgid "Contact Form 7"
-msgstr ""
-
-#: classess/class-sites.php:128
-msgctxt "plugin-name"
-msgid "Breadcrumb NavXT"
-msgstr ""
-
-#: classess/class-sites.php:129
-msgctxt "plugin-name"
-msgid "JetPack"
-msgstr ""
-
-#: classess/class-sites.php:130
-msgctxt "plugin-name"
-msgid "Mega menu"
-msgstr ""
-
-#: classess/class-sites.php:131
-msgctxt "plugin-name"
-msgid "Polylang"
-msgstr ""
-
-#: classess/class-sites.php:132
-msgctxt "plugin-name"
-msgid "WooCommerce"
-msgstr ""
-
-#: classess/class-sites.php:133
-msgctxt "plugin-name"
-msgid "Give – Donation Plugin and Fundraising Platform"
 msgstr ""

@@ -1,7 +1,5 @@
 <?php
-//var_dump( $this->get_activated_plugins() );
-
-//Customify_Starter_Sites_Ajax::download_file('https://raw.githubusercontent.com/FameThemes/famethemes-xml-demos/master/boston/config.json');
+defined( 'ABSPATH' ) || exit;
 
 ?>
 <div id="customify-sites-filter" class="wp-filter hide-if-no-js">
