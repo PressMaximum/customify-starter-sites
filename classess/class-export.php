@@ -105,8 +105,8 @@ class Customify_Starter_Sites_Export {
 	}
 
 	function the_title_rss( $title ){
-		if ( function_exists( 'wxr_cdata' ) ) {
-			return wxr_cdata( $title );
+		if ( function_exists( 'custstsi_wxr_cdata' ) ) {
+			return custstsi_wxr_cdata( $title );
 		}
 		return $title;
 	}
@@ -221,15 +221,22 @@ class Customify_Starter_Sites_Export {
 		}
 
 		/**
-		 * Wrap given string in XML CDATA tag.
+		 * Wrap a string in an XML CDATA section, escaping it for XML output.
 		 *
-		 * @since 2.1.0
+		 * This is the escaping routine for the WXR (XML) export document: text
+		 * placed inside a CDATA section is treated as literal character data by
+		 * XML parsers, and the one sequence that could break out of it, `]]>`,
+		 * is neutralised below. Callers therefore output the return value
+		 * directly; it is already safe for the XML context.
 		 *
-		 * @param string $str String to wrap in XML CDATA tag.
-		 * @return string
+		 * @param string $str String to wrap in an XML CDATA tag.
+		 * @return string XML-safe CDATA section.
 		 */
-		function wxr_cdata( $str ) {
-			if ( ! seems_utf8( $str ) ) {
+		function custstsi_wxr_cdata( $str ) {
+			$str = (string) $str;
+			// wp_is_valid_utf8() replaced the deprecated seems_utf8() in WordPress 6.9.
+			$is_utf8 = function_exists( 'wp_is_valid_utf8' ) ? wp_is_valid_utf8( $str ) : seems_utf8( $str );
+			if ( ! $is_utf8 ) {
 				$str = customify_starter_sites_latin1_to_utf8( $str );
 			}
 			// $str = ent2ncr(esc_html($str));
@@ -245,7 +252,7 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @return string Site URL.
 		 */
-		function wxr_site_url() {
+		function custstsi_wxr_site_url() {
 			// Multisite: the base URL.
 			if ( is_multisite() )
 				return network_home_url();
@@ -261,11 +268,11 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param object $category Category Object
 		 */
-		function wxr_cat_name( $category ) {
+		function custstsi_wxr_cat_name( $category ) {
 			if ( empty( $category->name ) )
 				return;
 
-			echo '<wp:cat_name>' . wxr_cdata( $category->name ) . "</wp:cat_name>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo '<wp:cat_name>' . custstsi_wxr_cdata( $category->name ) . "</wp:cat_name>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
 		/**
@@ -275,11 +282,11 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param object $category Category Object
 		 */
-		function wxr_category_description( $category ) {
+		function custstsi_wxr_category_description( $category ) {
 			if ( empty( $category->description ) )
 				return;
 
-			echo '<wp:category_description>' . wxr_cdata( $category->description ) . "</wp:category_description>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo '<wp:category_description>' . custstsi_wxr_cdata( $category->description ) . "</wp:category_description>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
 		/**
@@ -289,11 +296,11 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param object $tag Tag Object
 		 */
-		function wxr_tag_name( $tag ) {
+		function custstsi_wxr_tag_name( $tag ) {
 			if ( empty( $tag->name ) )
 				return;
  
-			echo '<wp:tag_name>' . wxr_cdata( $tag->name ) . "</wp:tag_name>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo '<wp:tag_name>' . custstsi_wxr_cdata( $tag->name ) . "</wp:tag_name>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
 		/**
@@ -303,11 +310,11 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param object $tag Tag Object
 		 */
-		function wxr_tag_description( $tag ) {
+		function custstsi_wxr_tag_description( $tag ) {
 			if ( empty( $tag->description ) )
 				return;
 
-			echo '<wp:tag_description>' . wxr_cdata( $tag->description ) . "</wp:tag_description>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo '<wp:tag_description>' . custstsi_wxr_cdata( $tag->description ) . "</wp:tag_description>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
 		/**
@@ -317,11 +324,11 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param object $term Term Object
 		 */
-		function wxr_term_name( $term ) {
+		function custstsi_wxr_term_name( $term ) {
 			if ( empty( $term->name ) )
 				return;
 
-			echo '<wp:term_name>' . wxr_cdata( $term->name ) . "</wp:term_name>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo '<wp:term_name>' . custstsi_wxr_cdata( $term->name ) . "</wp:term_name>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
 		/**
@@ -331,11 +338,11 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param object $term Term Object
 		 */
-		function wxr_term_description( $term ) {
+		function custstsi_wxr_term_description( $term ) {
 			if ( empty( $term->description ) )
 				return;
 
-			echo "\t\t<wp:term_description>" . wxr_cdata( $term->description ) . "</wp:term_description>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo "\t\t<wp:term_description>" . custstsi_wxr_cdata( $term->description ) . "</wp:term_description>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 
 		/**
@@ -345,7 +352,7 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param WP_Term $term Term object.
 		 */
-		function wxr_term_meta( $term ) {
+		function custstsi_wxr_term_meta( $term ) {
 			global $wpdb;
 
 			$termmeta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->termmeta WHERE term_id = %d", $term->term_id ) );
@@ -364,7 +371,7 @@ class Customify_Starter_Sites_Export {
 				 * @param object $meta     Current meta object.
 				 */
 				if ( ! apply_filters( 'wxr_export_skip_termmeta', false, $meta->meta_key, $meta ) ) {
-					printf( "\t\t<wp:termmeta>\n\t\t\t<wp:meta_key>%s</wp:meta_key>\n\t\t\t<wp:meta_value>%s</wp:meta_value>\n\t\t</wp:termmeta>\n", wxr_cdata( $meta->meta_key ), wxr_cdata( $meta->meta_value ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					printf( "\t\t<wp:termmeta>\n\t\t\t<wp:meta_key>%s</wp:meta_key>\n\t\t\t<wp:meta_value>%s</wp:meta_value>\n\t\t</wp:termmeta>\n", custstsi_wxr_cdata( $meta->meta_key ), custstsi_wxr_cdata( $meta->meta_value ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				} 
 			}
 		}
@@ -378,7 +385,7 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @param array $post_ids Array of post IDs to filter the query by. Optional.
 		 */
-		function wxr_authors_list( ?array $post_ids = null ) {
+		function custstsi_wxr_authors_list( ?array $post_ids = null ) {
 			global $wpdb;
 
 			if ( !empty( $post_ids ) ) {
@@ -398,11 +405,11 @@ class Customify_Starter_Sites_Export {
 			foreach ( $authors as $author ) {
 				echo "\t<wp:author>"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				echo '<wp:author_id>' . intval( $author->ID ) . '</wp:author_id>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				echo '<wp:author_login>' . wxr_cdata( $author->user_login ) . '</wp:author_login>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				echo '<wp:author_email>' . wxr_cdata( $author->user_email ) . '</wp:author_email>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				echo '<wp:author_display_name>' . wxr_cdata( $author->display_name ) . '</wp:author_display_name>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				echo '<wp:author_first_name>' . wxr_cdata( $author->first_name ) . '</wp:author_first_name>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				echo '<wp:author_last_name>' . wxr_cdata( $author->last_name ) . '</wp:author_last_name>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '<wp:author_login>' . custstsi_wxr_cdata( $author->user_login ) . '</wp:author_login>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '<wp:author_email>' . custstsi_wxr_cdata( $author->user_email ) . '</wp:author_email>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '<wp:author_display_name>' . custstsi_wxr_cdata( $author->display_name ) . '</wp:author_display_name>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '<wp:author_first_name>' . custstsi_wxr_cdata( $author->first_name ) . '</wp:author_first_name>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo '<wp:author_last_name>' . custstsi_wxr_cdata( $author->last_name ) . '</wp:author_last_name>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				echo "</wp:author>\n";
 			}
 		}
@@ -412,7 +419,7 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @since 3.1.0
 		 */
-		function wxr_nav_menu_terms() {
+		function custstsi_wxr_nav_menu_terms() {
 			$nav_menus = wp_get_nav_menus();
 			if ( empty( $nav_menus ) || ! is_array( $nav_menus ) )
 				return;
@@ -421,8 +428,8 @@ class Customify_Starter_Sites_Export {
 				echo "\t<wp:term>"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				echo '<wp:term_id>' . intval( $menu->term_id ) . '</wp:term_id>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 				echo '<wp:term_taxonomy>nav_menu</wp:term_taxonomy>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				echo '<wp:term_slug>' . wxr_cdata( $menu->slug ) . '</wp:term_slug>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				wxr_term_name( $menu );
+				echo '<wp:term_slug>' . custstsi_wxr_cdata( $menu->slug ) . '</wp:term_slug>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				custstsi_wxr_term_name( $menu );
 				echo "</wp:term>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			}
 		}
@@ -432,7 +439,7 @@ class Customify_Starter_Sites_Export {
 		 *
 		 * @since 2.3.0
 		 */
-		function wxr_post_taxonomy() {
+		function custstsi_wxr_post_taxonomy() {
 			$post = get_post();
 
 			$taxonomies = get_object_taxonomies( $post->post_type );
@@ -441,7 +448,12 @@ class Customify_Starter_Sites_Export {
 			$terms = wp_get_object_terms( $post->ID, $taxonomies );
 
 			foreach ( (array) $terms as $term ) {
-				echo "\t\t<category domain=\"{$term->taxonomy}\" nicename=\"{$term->slug}\">" . wxr_cdata( $term->name ) . "</category>\n";
+				printf(
+					"\t\t<category domain=\"%s\" nicename=\"%s\">%s</category>\n",
+					esc_attr( $term->taxonomy ),
+					esc_attr( $term->slug ),
+					custstsi_wxr_cdata( $term->name ) // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section.
+				);
 			}
 		}
 
@@ -451,12 +463,12 @@ class Customify_Starter_Sites_Export {
 		 * @param string $meta_key
 		 * @return bool
 		 */
-		function wxr_filter_postmeta( $return_me, $meta_key ) {
+		function custstsi_wxr_filter_postmeta( $return_me, $meta_key ) {
 			if ( '_edit_lock' == $meta_key )
 				$return_me = true;
 			return $return_me;
 		}
-		add_filter( 'wxr_export_skip_postmeta', 'wxr_filter_postmeta', 10, 2 );
+		add_filter( 'wxr_export_skip_postmeta', 'custstsi_wxr_filter_postmeta', 10, 2 );
 
 		echo '<?xml version="1.0" encoding="' . get_bloginfo('charset') . "\" ?>\n";
 
@@ -491,45 +503,45 @@ class Customify_Starter_Sites_Export {
 				<title><?php bloginfo_rss( 'name' ); ?></title>
 				<link><?php bloginfo_rss( 'url' ); ?></link>
 				<description><?php bloginfo_rss( 'description' ); ?></description>
-				<pubDate><?php echo date( 'D, d M Y H:i:s +0000' ); ?></pubDate>
+				<pubDate><?php echo esc_html( gmdate( 'D, d M Y H:i:s +0000' ) ); ?></pubDate>
 				<language><?php bloginfo_rss( 'language' ); ?></language>
-				<wp:wxr_version><?php echo WXR_VERSION; ?></wp:wxr_version>
-				<wp:base_site_url><?php echo wxr_site_url(); ?></wp:base_site_url>
+				<wp:wxr_version><?php echo esc_html( WXR_VERSION ); ?></wp:wxr_version>
+				<wp:base_site_url><?php echo esc_url( custstsi_wxr_site_url() ); ?></wp:base_site_url>
 				<wp:base_blog_url><?php bloginfo_rss( 'url' ); ?></wp:base_blog_url>
 
-				<?php wxr_authors_list( $post_ids ); ?>
+				<?php custstsi_wxr_authors_list( $post_ids ); ?>
 
 				<?php foreach ( $cats as $c ) : ?>
 					<wp:category>
 						<wp:term_id><?php echo intval( $c->term_id ); ?></wp:term_id>
-						<wp:category_nicename><?php echo wxr_cdata( $c->slug ); ?></wp:category_nicename>
-						<wp:category_parent><?php echo wxr_cdata( $c->parent ? $cats[$c->parent]->slug : '' ); ?></wp:category_parent>
-						<?php wxr_cat_name( $c );
-						wxr_category_description( $c );
-						wxr_term_meta( $c ); ?>
+						<wp:category_nicename><?php echo custstsi_wxr_cdata( $c->slug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:category_nicename>
+						<wp:category_parent><?php echo custstsi_wxr_cdata( $c->parent ? $cats[$c->parent]->slug : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:category_parent>
+						<?php custstsi_wxr_cat_name( $c );
+						custstsi_wxr_category_description( $c );
+						custstsi_wxr_term_meta( $c ); ?>
 					</wp:category>
 				<?php endforeach; ?>
 				<?php foreach ( $tags as $t ) : ?>
 					<wp:tag>
 						<wp:term_id><?php echo intval( $t->term_id ); ?></wp:term_id>
-						<wp:tag_slug><?php echo wxr_cdata( $t->slug ); ?></wp:tag_slug>
-						<?php wxr_tag_name( $t );
-						wxr_tag_description( $t );
-						wxr_term_meta( $t ); ?>
+						<wp:tag_slug><?php echo custstsi_wxr_cdata( $t->slug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:tag_slug>
+						<?php custstsi_wxr_tag_name( $t );
+						custstsi_wxr_tag_description( $t );
+						custstsi_wxr_term_meta( $t ); ?>
 					</wp:tag>
 				<?php endforeach; ?>
 				<?php foreach ( $terms as $t ) : ?>
 					<wp:term>
-						<wp:term_id><?php echo wxr_cdata( $t->term_id ); ?></wp:term_id>
-						<wp:term_taxonomy><?php echo wxr_cdata( $t->taxonomy ); ?></wp:term_taxonomy>
-						<wp:term_slug><?php echo wxr_cdata( $t->slug ); ?></wp:term_slug>
-						<wp:term_parent><?php echo wxr_cdata( $t->parent ? $terms[$t->parent]->slug : '' ); ?></wp:term_parent>
-						<?php wxr_term_name( $t );
-						wxr_term_description( $t );
-						wxr_term_meta( $t ); ?>
+						<wp:term_id><?php echo custstsi_wxr_cdata( $t->term_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:term_id>
+						<wp:term_taxonomy><?php echo custstsi_wxr_cdata( $t->taxonomy ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:term_taxonomy>
+						<wp:term_slug><?php echo custstsi_wxr_cdata( $t->slug ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:term_slug>
+						<wp:term_parent><?php echo custstsi_wxr_cdata( $t->parent ? $terms[$t->parent]->slug : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:term_parent>
+						<?php custstsi_wxr_term_name( $t );
+						custstsi_wxr_term_description( $t );
+						custstsi_wxr_term_meta( $t ); ?>
 					</wp:term>
 				<?php endforeach; ?>
-				<?php if ( 'all' == $args['content'] ) wxr_nav_menu_terms(); ?>
+				<?php if ( 'all' == $args['content'] ) custstsi_wxr_nav_menu_terms(); ?>
 
 				<?php
 				/** This action is documented in wp-includes/feed-rss2.php */
@@ -593,12 +605,12 @@ class Customify_Starter_Sites_Export {
         <item>
             <title><?php
 				/** This filter is documented in wp-includes/feed.php */
-				echo apply_filters( 'the_title_rss', $post->post_title );
+				echo esc_html( apply_filters( 'the_title_rss', $post->post_title ) );
 				?></title>
-            <link><?php the_permalink_rss() ?></link>
-            <pubDate><?php echo mysql2date( 'D, d M Y H:i:s +0000', get_post_time( 'Y-m-d H:i:s', true ), false ); ?></pubDate>
-            <dc:creator><?php echo wxr_cdata( get_the_author_meta( 'login' ) ); ?></dc:creator>
-            <guid isPermaLink="false"><?php the_guid(); ?></guid>
+            <link><?php echo esc_url( get_permalink() ); ?></link>
+            <pubDate><?php echo esc_html( mysql2date( 'D, d M Y H:i:s +0000', get_post_time( 'Y-m-d H:i:s', true ), false ) ); ?></pubDate>
+            <dc:creator><?php echo custstsi_wxr_cdata( get_the_author_meta( 'login' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></dc:creator>
+            <guid isPermaLink="false"><?php echo esc_url( get_the_guid() ); ?></guid>
             <description></description>
             <content:encoded><?php
 				/**
@@ -608,7 +620,7 @@ class Customify_Starter_Sites_Export {
 				 *
 				 * @param string $post_content Content of the current post.
 				 */
-				echo wxr_cdata( apply_filters( 'the_content_export', $post->post_content ) );
+				echo custstsi_wxr_cdata( apply_filters( 'the_content_export', $post->post_content ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section.
 				?></content:encoded>
             <excerpt:encoded><?php
 				/**
@@ -618,24 +630,24 @@ class Customify_Starter_Sites_Export {
 				 *
 				 * @param string $post_excerpt Excerpt for the current post.
 				 */
-				echo wxr_cdata( apply_filters( 'the_excerpt_export', $post->post_excerpt ) );
+				echo custstsi_wxr_cdata( apply_filters( 'the_excerpt_export', $post->post_excerpt ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section.
 				?></excerpt:encoded>
             <wp:post_id><?php echo intval( $post->ID ); ?></wp:post_id>
-            <wp:post_date><?php echo wxr_cdata( $post->post_date ); ?></wp:post_date>
-            <wp:post_date_gmt><?php echo wxr_cdata( $post->post_date_gmt ); ?></wp:post_date_gmt>
-            <wp:comment_status><?php echo wxr_cdata( $post->comment_status ); ?></wp:comment_status>
-            <wp:ping_status><?php echo wxr_cdata( $post->ping_status ); ?></wp:ping_status>
-            <wp:post_name><?php echo wxr_cdata( $post->post_name ); ?></wp:post_name>
-            <wp:status><?php echo wxr_cdata( $post->post_status ); ?></wp:status>
+            <wp:post_date><?php echo custstsi_wxr_cdata( $post->post_date ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:post_date>
+            <wp:post_date_gmt><?php echo custstsi_wxr_cdata( $post->post_date_gmt ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:post_date_gmt>
+            <wp:comment_status><?php echo custstsi_wxr_cdata( $post->comment_status ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_status>
+            <wp:ping_status><?php echo custstsi_wxr_cdata( $post->ping_status ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:ping_status>
+            <wp:post_name><?php echo custstsi_wxr_cdata( $post->post_name ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:post_name>
+            <wp:status><?php echo custstsi_wxr_cdata( $post->post_status ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:status>
             <wp:post_parent><?php echo intval( $post->post_parent ); ?></wp:post_parent>
             <wp:menu_order><?php echo intval( $post->menu_order ); ?></wp:menu_order>
-            <wp:post_type><?php echo wxr_cdata( $post->post_type ); ?></wp:post_type>
-            <wp:post_password><?php echo wxr_cdata( $post->post_password ); ?></wp:post_password>
+            <wp:post_type><?php echo custstsi_wxr_cdata( $post->post_type ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:post_type>
+            <wp:post_password><?php echo custstsi_wxr_cdata( $post->post_password ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:post_password>
             <wp:is_sticky><?php echo intval( $is_sticky ); ?></wp:is_sticky>
 			<?php	if ( $post->post_type == 'attachment' ) : ?>
-                <wp:attachment_url><?php echo wxr_cdata( wp_get_attachment_url( $post->ID ) ); ?></wp:attachment_url>
+                <wp:attachment_url><?php echo custstsi_wxr_cdata( wp_get_attachment_url( $post->ID ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:attachment_url>
 			<?php 	endif; ?>
-			<?php 	wxr_post_taxonomy(); ?>
+			<?php 	custstsi_wxr_post_taxonomy(); ?>
 			<?php	$postmeta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->postmeta WHERE post_id = %d", $post->ID ) );
 			foreach ( $postmeta as $meta ) :
 				/**
@@ -656,8 +668,8 @@ class Customify_Starter_Sites_Export {
 				$meta = $this->progress_meta( $meta );
 				?>
                 <wp:postmeta>
-                    <wp:meta_key><?php echo wxr_cdata( $meta->meta_key ); ?></wp:meta_key>
-                    <wp:meta_value><?php echo wxr_cdata( $meta->meta_value ); ?></wp:meta_value>
+                    <wp:meta_key><?php echo custstsi_wxr_cdata( $meta->meta_key ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:meta_key>
+                    <wp:meta_value><?php echo custstsi_wxr_cdata( $meta->meta_value ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:meta_value>
                 </wp:postmeta>
 			<?php	endforeach;
 
@@ -666,15 +678,15 @@ class Customify_Starter_Sites_Export {
 			foreach ( $comments as $c ) : ?>
                 <wp:comment>
                     <wp:comment_id><?php echo intval( $c->comment_ID ); ?></wp:comment_id>
-                    <wp:comment_author><?php echo wxr_cdata( $c->comment_author ); ?></wp:comment_author>
-                    <wp:comment_author_email><?php echo wxr_cdata( $c->comment_author_email ); ?></wp:comment_author_email>
+                    <wp:comment_author><?php echo custstsi_wxr_cdata( $c->comment_author ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_author>
+                    <wp:comment_author_email><?php echo custstsi_wxr_cdata( $c->comment_author_email ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_author_email>
                     <wp:comment_author_url><?php echo esc_url( $c->comment_author_url ); ?></wp:comment_author_url>
-                    <wp:comment_author_IP><?php echo wxr_cdata( $c->comment_author_IP ); ?></wp:comment_author_IP>
-                    <wp:comment_date><?php echo wxr_cdata( $c->comment_date ); ?></wp:comment_date>
-                    <wp:comment_date_gmt><?php echo wxr_cdata( $c->comment_date_gmt ); ?></wp:comment_date_gmt>
-                    <wp:comment_content><?php echo wxr_cdata( $c->comment_content ) ?></wp:comment_content>
-                    <wp:comment_approved><?php echo wxr_cdata( $c->comment_approved ); ?></wp:comment_approved>
-                    <wp:comment_type><?php echo wxr_cdata( $c->comment_type ); ?></wp:comment_type>
+                    <wp:comment_author_IP><?php echo custstsi_wxr_cdata( $c->comment_author_IP ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_author_IP>
+                    <wp:comment_date><?php echo custstsi_wxr_cdata( $c->comment_date ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_date>
+                    <wp:comment_date_gmt><?php echo custstsi_wxr_cdata( $c->comment_date_gmt ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_date_gmt>
+                    <wp:comment_content><?php echo custstsi_wxr_cdata( $c->comment_content ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_content>
+                    <wp:comment_approved><?php echo custstsi_wxr_cdata( $c->comment_approved ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_approved>
+                    <wp:comment_type><?php echo custstsi_wxr_cdata( $c->comment_type ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:comment_type>
                     <wp:comment_parent><?php echo intval( $c->comment_parent ); ?></wp:comment_parent>
                     <wp:comment_user_id><?php echo intval( $c->user_id ); ?></wp:comment_user_id>
 					<?php		$c_meta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->commentmeta WHERE comment_id = %d", $c->comment_ID ) );
@@ -696,8 +708,8 @@ class Customify_Starter_Sites_Export {
 						}
 						?>
                         <wp:commentmeta>
-                            <wp:meta_key><?php echo wxr_cdata( $meta->meta_key ); ?></wp:meta_key>
-                            <wp:meta_value><?php echo wxr_cdata( $meta->meta_value ); ?></wp:meta_value>
+                            <wp:meta_key><?php echo custstsi_wxr_cdata( $meta->meta_key ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:meta_key>
+                            <wp:meta_value><?php echo custstsi_wxr_cdata( $meta->meta_value ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- custstsi_wxr_cdata() returns an XML-safe CDATA section. ?></wp:meta_value>
                         </wp:commentmeta>
 					<?php		endforeach; ?>
                 </wp:comment>

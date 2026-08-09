@@ -27,7 +27,9 @@ defined( 'ABSPATH' ) || exit;
         <div class="theme-id-container">
             <h2 class="theme-name" id="{{ data.slug }}-name">{{ data.title }}</h2>
             <div class="theme-actions">
-                <a class="cs-open-preview button button-secondary  hide-if-no-customize" data-slug="{{ data.slug }}" href="#"><?php esc_html_e( 'Preview', 'customify-starter-sites' ); ?></a>
+                <# if ( data.demo_url ) { #>
+                <a class="cs-open-preview button button-secondary  hide-if-no-customize" data-slug="{{ data.slug }}" href="{{ data.demo_url }}" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Preview', 'customify-starter-sites' ); ?></a>
+                <# } #>
                 <a class="cs-open-modal button button-primary  hide-if-no-customize" href="#"><?php esc_html_e( 'Details', 'customify-starter-sites' ); ?></a>
             </div>
         </div>

@@ -10,19 +10,19 @@ class Customify_Starter_Sites_Ajax {
 
 	function __construct() {
 		// Install Plugin
-		add_action( 'wp_ajax_cs_install_plugin', array( Customify_Starter_Sites_Plugin::get_instance(), 'ajax_install_plugin' ) );
+		add_action( 'wp_ajax_custstsi_install_plugin', array( Customify_Starter_Sites_Plugin::get_instance(), 'ajax_install_plugin' ) );
 		// Active Plugin
-		add_action( 'wp_ajax_cs_active_plugin', array( Customify_Starter_Sites_Plugin::get_instance(), 'ajax_activate_plugin' ) );
+		add_action( 'wp_ajax_custstsi_active_plugin', array( Customify_Starter_Sites_Plugin::get_instance(), 'ajax_activate_plugin' ) );
 
 		// Import Content
-		add_action( 'wp_ajax_cs_import__check', array( $this, 'ajax_import__check' ) );
-		add_action( 'wp_ajax_cs_import_content', array( $this, 'ajax_import_content' ) );
-		add_action( 'wp_ajax_cs_import_options', array( $this, 'ajax_import_options' ) );
+		add_action( 'wp_ajax_custstsi_import__check', array( $this, 'ajax_import__check' ) );
+		add_action( 'wp_ajax_custstsi_import_content', array( $this, 'ajax_import_content' ) );
+		add_action( 'wp_ajax_custstsi_import_options', array( $this, 'ajax_import_options' ) );
 
 		// Download files
-		add_action( 'wp_ajax_cs_download_files', array( $this, 'ajax_download_files' ) );
+		add_action( 'wp_ajax_custstsi_download_files', array( $this, 'ajax_download_files' ) );
 
-		add_action( 'wp_ajax_cs_export', array( $this, 'ajax_export' ) );
+		add_action( 'wp_ajax_custstsi_export', array( $this, 'ajax_export' ) );
 	}
 
 	protected function verify_ajax_referer() {
@@ -848,9 +848,9 @@ class Customify_Starter_Sites_Ajax {
 		$data = new \stdClass();
 
 		if ( ! function_exists( 'media_handle_sideload' ) ) {
-			require ABSPATH . 'wp-admin/includes/media.php';
-			require ABSPATH . 'wp-admin/includes/file.php';
-			require ABSPATH . 'wp-admin/includes/image.php';
+			require_once ABSPATH . 'wp-admin/includes/media.php';
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			require_once ABSPATH . 'wp-admin/includes/image.php';
 		}
 
 		if ( ! empty( $file ) ) {
@@ -1118,12 +1118,32 @@ class Customify_Starter_Sites_Ajax {
 		}
 	}
 
+	/**
+	 * Local placeholder image URL.
+	 *
+	 * Prefers the placeholder copied into the media library on import; falls
+	 * back to the image bundled with this plugin. Never points at a remote
+	 * host so imports do not depend on an external server.
+	 *
+	 * @return string
+	 */
+	protected function get_placeholder_url() {
+		if ( class_exists( 'Customify_Starter_Sites_Placeholder' ) ) {
+			$placeholder = Customify_Starter_Sites_Placeholder::get_instance();
+			if ( ! empty( $placeholder->placeholder_url ) ) {
+				return $placeholder->placeholder_url;
+			}
+		}
+
+		return CUSTOMIFY_STARTER_SITES_URL . '/assets/placeholder/placeholder.jpg';
+	}
+
 	function replace_by_placeholder( &$value, $key ) {
 		if ( ! is_string( $value ) ) {
 			return;
 		}
 		if ( false !== strpos( $value, 'https://customifysites.com/' ) && ( false !== strpos( $value, '.jpeg' ) || false !== strpos( $value, '.jpg' ) || false !== strpos( $value, '.png' ) ) ) {
-			$value = 'https://customifysites.com/outfit/wp-content/uploads/sites/15/2018/10/placeholder.jpg';
+			$value = $this->get_placeholder_url();
 		}
 	}
 

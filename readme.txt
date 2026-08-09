@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: importer, demo, starter sites, customify
 Requires at least: 5.0
 Tested up to: 7.0
-Stable tag: 0.0.19
+Stable tag: 0.0.20
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -38,6 +38,14 @@ Human-readable source and build tooling are available at [github.com/PressMaximu
 3. Open **Customify → Starter Sites** when the Customify theme is active. Otherwise, open the top-level **Customify Sites** menu.
 
 == Changelog ==
+
+= 0.0.20 =
+* Replace the admin starter-site preview iframe with a link that opens the public demo in a new browser tab, so no external site is embedded in the dashboard.
+* Serve the import placeholder image from the plugin instead of a remote URL.
+* Use require_once when conditionally loading core admin files for media side-loading.
+* Escape all values echoed into the WXR export document.
+* Add unique prefixes to AJAX actions, importer hooks, and helper functions to avoid collisions with other plugins and themes.
+* Use wp_is_valid_utf8() with a fallback when preparing export data, avoiding the deprecated seems_utf8() on newer WordPress.
 
 = 0.0.19 =
 * Show the Customify requirement notice directly on the Starter Sites page when the theme is inactive.

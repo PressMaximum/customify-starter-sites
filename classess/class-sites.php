@@ -103,7 +103,6 @@ class Customify_Starter_Sites {
         require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/dashboard.php';
         require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/modal.php';
         echo '</div>';
-        require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/preview.php';
     }
 
     function get_installed_plugins(){

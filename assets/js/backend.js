@@ -513,7 +513,7 @@ jQuery( document ).ready( function( $ ){
                             dataType: 'json',
                             type: 'post',
                             data: {
-                                action: 'cs_download_files',
+                                action: 'custstsi_download_files',
                                 nonce: Customify_Starter_Sites.ajax_nonce,
                                 resources: that.data.resources,
                                 builder: that.current_builder,
@@ -624,7 +624,7 @@ jQuery( document ).ready( function( $ ){
                             type: 'post',
                             dataType: 'json',
                             data: {
-                                action: 'cs_install_plugin',
+                                action: 'custstsi_install_plugin',
                                 nonce: Customify_Starter_Sites.ajax_nonce,
                                 plugin: plugin_data
                             },
@@ -652,7 +652,7 @@ jQuery( document ).ready( function( $ ){
                         type: 'post',
                         dataType: 'json',
                         data: {
-                            action: 'cs_active_plugin',
+                            action: 'custstsi_active_plugin',
                             nonce: Customify_Starter_Sites.ajax_nonce,
                             plugin: plugin_data
                         },
@@ -694,7 +694,7 @@ jQuery( document ).ready( function( $ ){
                             $.ajax({
                                 url: Customify_Starter_Sites.ajax_url,
                                 data: {
-                                    action: 'cs_import_content',
+                                    action: 'custstsi_import_content',
                                     nonce: Customify_Starter_Sites.ajax_nonce,
                                     id: that.xml_id,
 
@@ -714,7 +714,7 @@ jQuery( document ).ready( function( $ ){
                         $.ajax({ // cs_import__check
                             url: Customify_Starter_Sites.ajax_url,
                             data: {
-                                action: 'cs_import__check',
+                                action: 'custstsi_import__check',
                                 nonce: Customify_Starter_Sites.ajax_nonce
                             },
                             success: function (res) {
@@ -768,7 +768,7 @@ jQuery( document ).ready( function( $ ){
                         $.ajax({
                             url: Customify_Starter_Sites.ajax_url,
                             data: {
-                                action: 'cs_import_options',
+                                action: 'custstsi_import_options',
                                 nonce: Customify_Starter_Sites.ajax_nonce,
                                 id: that.json_id,
                                 xml_id: that.xml_id
@@ -971,101 +971,20 @@ jQuery( document ).ready( function( $ ){
     };
 
 
-    var Customify_Site_Preview = function(){
-        var preview = {
-            el: $( '#customify-site-preview' ),
-            previewing: '',
-            init: function(){
-                var that = this;
-                // open view
-                $( document ).on( 'click', '.cs-open-preview', function( e ) {
-                    e.preventDefault();
-	                var slug = safeSlug( $( this ).attr( 'data-slug' ) || '' );
-                    if( ! _.isUndefined( Customify_Site.data.posts[ slug ] )  ) {
-                        var data = Customify_Site.data.posts[ slug ];
-	                    var previewUrl = safeHttpsUrl( data.demo_url );
-	                    if ( ! previewUrl ) {
-	                        return;
-	                    }
-                        that.previewing = data.slug;
-                        $( '#customify-site-preview' ).removeClass( 'cs-iframe-loaded' );
-	                    that.el.find( '.cs-iframe iframe' ).attr( 'src', previewUrl );
-                        $( '.cs-iframe', that.el ).attr( 'data-device', '' );
-                        $( '.cs-demo-name', that.el ).text( data.title );
-                        that.el.removeClass( 'cs-hide' );
-                    }
-                } );
-
-
-                // Device view
-                $( document ).on( 'click', '.cs-device-view', function( e ) {
-                    e.preventDefault();
-                    $( '.cs-device-view' ).removeClass( 'current' );
-                    $( this ).addClass( 'current' );
-                    var device = $( this ).attr( 'data-device' ) || 'desktop';
-                    $( '.cs-iframe', that.el ).attr( 'data-device', device );
-                } );
-
-
-                // Close
-                var close = function(){
-                    that.el.addClass( 'cs-hide' );
-                    $( '.cs-iframe', that.el ).attr( 'data-device', '' );
-                    that.el.find( '.cs-iframe iframe' ).attr( 'src', '' );
-                    $( '#customify-site-preview' ).removeClass( 'cs-iframe-loaded' );
-                };
-
-                $( document ).on( 'click', '.cs-preview-close', function( e ) {
-                    e.preventDefault();
-                    close();
-                } );
-
-                $( window ).on( 'keydown', function( e ) {
-                    if ( e.keyCode === 27 ){ // esc button
-                        close();
-                    }
-                } );
-
-                $( document ).on( 'click', '.cs-preview-nav', function( e ) {
-                    e.preventDefault();
-                    var action = $( this ).attr( 'data-action' ) || 'next';
-
-                    var current_demo = $( '#customify-sites-listing .theme[data-slug="'+that.previewing+'"]' );
-                    var $item;
-                    if ( action === 'next' ) {
-                        $item = current_demo.next();
-                    } else {
-                        $item = current_demo.prev();
-                    }
-
-                    if ( $item.length > 0 ) {
-                        $( '.cs-open-preview', $item ).click();
-                    }
-                } );
-
-                // Click import button
-                $( document ).on( 'click', '.cs-preview-import', function( e ) {
-                    e.preventDefault();
-                    close();
-                    var current_demo = $( '#customify-sites-listing .theme[data-slug="'+that.previewing+'"]' );
-                    $('.cs-open-modal', current_demo ).click();
-                } );
-
-
-
-
-            }
-        };
-
-        return preview;
-    };
+    // Starter-site previews open the public demo in a new browser tab rather
+    // than embedding an external site inside the WordPress admin. The Preview
+    // links carry a validated https href + target="_blank" in the templates,
+    // so no JavaScript is required to open them. This guard only blocks the
+    // navigation when a demo happens to have no preview URL.
+    $( document ).on( 'click', '.cs-open-preview', function( e ) {
+        var href = $( this ).attr( 'href' ) || '';
+        if ( ! safeHttpsUrl( href ) ) {
+            e.preventDefault();
+        }
+    } );
 
 
     Customify_Site.init();
-    Customify_Site_Preview().init();
-    $( '#cs-preview-iframe' ).load( function(){
-        $( '#customify-site-preview' ).addClass( 'cs-iframe-loaded' );
-    } );
 
 
 } );

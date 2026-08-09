@@ -9,7 +9,9 @@
             <img src="{{ data.thumbnail_url }}" alt="">
           </div>
           <div class="cs-name">{{ data.title }}</div>
-          <a href="#" data-slug="{{ data.slug }}" class="cs-open-preview button-secondary"><?php esc_html_e('Preview', 'customify-starter-sites'); ?></a>
+          <# if ( data.demo_url ) { #>
+          <a href="{{ data.demo_url }}" target="_blank" rel="noopener noreferrer" data-slug="{{ data.slug }}" class="cs-open-preview button-secondary"><?php esc_html_e('Preview', 'customify-starter-sites'); ?></a>
+          <# } #>
           <div class="cs-desc">{{ data.desc }}</div>
         </div>
 

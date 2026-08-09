@@ -102,22 +102,22 @@ class Customify_Starter_Sites_WXR_Import_UI
 
 		// Are we allowed to create users?
 		if (!$this->allow_create_users()) {
-			add_filter('wxr_importer.pre_process.user', '__return_null');
+			add_filter('custstsi_wxr_importer.pre_process.user', '__return_null');
 		}
 
 		// Keep track of our progress
-		add_action('wxr_importer.processed.post', array($this, 'imported_post'), 10, 2);
-		add_action('wxr_importer.process_failed.post', array($this, 'imported_post'), 10, 2);
-		add_action('wxr_importer.process_already_imported.post', array($this, 'already_imported_post'), 10, 2);
-		add_action('wxr_importer.process_skipped.post', array($this, 'already_imported_post'), 10, 2);
-		add_action('wxr_importer.processed.comment', array($this, 'imported_comment'));
-		add_action('wxr_importer.process_already_imported.comment', array($this, 'imported_comment'));
-		add_action('wxr_importer.processed.term', array($this, 'imported_term'));
-		add_action('wxr_importer.process_failed.term', array($this, 'imported_term'));
-		add_action('wxr_importer.process_already_imported.term', array($this, 'imported_term'));
-		add_action('wxr_importer.processed.user', array($this, 'imported_user'));
-		add_action('wxr_importer.process_failed.user', array($this, 'imported_user'));
-		add_filter('wxr_importer.pre_process.post', array($this, 'sanitize_imported_post'), 10, 4);
+		add_action('custstsi_wxr_importer.processed.post', array($this, 'imported_post'), 10, 2);
+		add_action('custstsi_wxr_importer.process_failed.post', array($this, 'imported_post'), 10, 2);
+		add_action('custstsi_wxr_importer.process_already_imported.post', array($this, 'already_imported_post'), 10, 2);
+		add_action('custstsi_wxr_importer.process_skipped.post', array($this, 'already_imported_post'), 10, 2);
+		add_action('custstsi_wxr_importer.processed.comment', array($this, 'imported_comment'));
+		add_action('custstsi_wxr_importer.process_already_imported.comment', array($this, 'imported_comment'));
+		add_action('custstsi_wxr_importer.processed.term', array($this, 'imported_term'));
+		add_action('custstsi_wxr_importer.process_failed.term', array($this, 'imported_term'));
+		add_action('custstsi_wxr_importer.process_already_imported.term', array($this, 'imported_term'));
+		add_action('custstsi_wxr_importer.processed.user', array($this, 'imported_user'));
+		add_action('custstsi_wxr_importer.process_failed.user', array($this, 'imported_user'));
+		add_filter('custstsi_wxr_importer.pre_process.post', array($this, 'sanitize_imported_post'), 10, 4);
 
 		$err = $importer->import($file);
 		if (is_wp_error($err)) {
@@ -186,7 +186,7 @@ class Customify_Starter_Sites_WXR_Import_UI
 		 *
 		 * @param array $options Options to pass to Customify_Starter_Sites_WXR_Importer::__construct
 		 */
-		return apply_filters('wxr_importer.admin.import_options', $options); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
+		return apply_filters('custstsi_wxr_importer.admin.import_options', $options); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WXR importer hook.
 	}
 
 
@@ -199,7 +199,7 @@ class Customify_Starter_Sites_WXR_Import_UI
 	 */
 	protected function allow_fetch_attachments()
 	{
-		return apply_filters('import_allow_fetch_attachments', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
+		return apply_filters('custstsi_import_allow_fetch_attachments', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 	}
 
 	/**
@@ -210,7 +210,7 @@ class Customify_Starter_Sites_WXR_Import_UI
 	 */
 	protected function allow_create_users()
 	{
-		return apply_filters('import_allow_create_users', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
+		return apply_filters('custstsi_import_allow_create_users', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Backward-compatible WordPress importer hook.
 	}
 
 	/**

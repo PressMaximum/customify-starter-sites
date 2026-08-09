@@ -7,7 +7,7 @@ Plugin URI: https://wpcustomify.com
 Description: Import free sites built with the Customify theme.
 Author: pressmaximum
 Author URI: https://pressmaximum.com/customify
-Version: 0.0.19
+Version: 0.0.20
 Requires at least: 5.0
 Requires PHP: 7.4
 Text Domain: customify-starter-sites
@@ -16,7 +16,7 @@ License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
-define( 'CUSTOMIFY_STARTER_SITES_VERSION', '0.0.19' );
+define( 'CUSTOMIFY_STARTER_SITES_VERSION', '0.0.20' );
 define( 'CUSTOMIFY_STARTER_SITES_FILE', __FILE__ );
 define( 'CUSTOMIFY_STARTER_SITES_URL', untrailingslashit( plugins_url( '', CUSTOMIFY_STARTER_SITES_FILE ) ) );
 define( 'CUSTOMIFY_STARTER_SITES_PATH', plugin_dir_path( CUSTOMIFY_STARTER_SITES_FILE ) );
@@ -61,38 +61,6 @@ if ( is_admin() ) {
 	Customify_Starter_Sites::get_instance();
 	new Customify_Starter_Sites_Ajax();
 }
-
-/**
- * Preview Bridge — frontend iframe listener.
- *
- * Enqueues `assets/js/preview-bridge.js` on the frontend when the
- * active theme is Customify (or a Customify child). The script bails
- * unless it's running inside an iframe, so the cost on normal page
- * views is one extra script tag with no runtime work.
- *
- * Contract: receives `{ type: 'fdi-preview-style', css }` postMessage
- * from the FameThemes Demo Importer wizard and writes the supplied CSS
- * into a single managed `<style id="cpb-overrides">` re-appended to the
- * bottom of `<head>` on every message (so the override always beats
- * the theme's later inline rules). Sends `{ type: 'fdi-preview-ready' }`
- * upstream on load so the wizard can replay its last payload.
- *
- * The bridge implementation lives in a small, dependency-free script.
- */
-function customify_starter_sites_preview_bridge_enqueue() {
-	$template = (string) get_template();
-	if ( 'customify' !== $template ) {
-		return;
-	}
-	wp_enqueue_script(
-		'customify-preview-bridge',
-		CUSTOMIFY_STARTER_SITES_URL . '/assets/js/preview-bridge.js',
-		array(),
-		CUSTOMIFY_STARTER_SITES_VERSION,
-		true
-	);
-}
-add_action( 'wp_enqueue_scripts', 'customify_starter_sites_preview_bridge_enqueue' );
 
 if ( is_admin() ) {
 	function customify_starter_sites_admin_footer( $html ) {
