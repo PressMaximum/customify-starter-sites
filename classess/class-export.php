@@ -2,13 +2,19 @@
 
 defined( 'ABSPATH' ) || exit;
 
-// phpcs:disable
-
 class Customify_Starter_Sites_Export {
-	function __construct( $args ) {
 
-		$from_customify = isset( $_GET['from_customify'] ) ? sanitize_key( wp_unslash( $_GET['from_customify'] ) ) : '';
-		if ( 'placeholder' === $from_customify ) {
+	/**
+	 * Export mode passed in from the verified request ("placeholder" or "").
+	 *
+	 * @var string
+	 */
+	protected $from_customify = '';
+
+	function __construct( $args, $from_customify = '' ) {
+
+		$this->from_customify = sanitize_key( $from_customify );
+		if ( 'placeholder' === $this->from_customify ) {
 			add_filter( 'customify_import_placeholder_only', '__return_true' );
 			add_filter( 'rss2_head', array( $this, 'export_remove_rss_title' ), 95 );
 			add_filter( 'the_content_export', array( $this, 'the_content_export' ), 999 );
@@ -65,8 +71,7 @@ class Customify_Starter_Sites_Export {
 		}
 
 		$file_name = $sitename . $builder . $date;
-		$from_customify = isset( $_GET['from_customify'] ) ? sanitize_key( wp_unslash( $_GET['from_customify'] ) ) : '';
-		if ( 'placeholder' === $from_customify ) {
+		if ( 'placeholder' === $this->from_customify ) {
 			$file_name .= '-placeholder';
         }
 		return $file_name;
@@ -114,7 +119,8 @@ class Customify_Starter_Sites_Export {
 		} else {
 			$post_types = get_post_types( array( 'can_export' => true ) );
 			$esses = array_fill( 0, count($post_types), '%s' );
-			$where = $wpdb->prepare( "{$wpdb->posts}.post_type IN (" . implode( ',', $esses ) . ')', $post_types );
+			// $esses is a list of %s placeholders (one per post type); the values are passed to prepare().
+			$where = $wpdb->prepare( "{$wpdb->posts}.post_type IN (" . implode( ',', $esses ) . ')', $post_types ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Placeholders are built dynamically and the values are passed to $wpdb->prepare().
 		}
 
 		if ( $args['status'] && ( 'post' == $args['content'] || 'page' == $args['content'] ) )
@@ -135,10 +141,10 @@ class Customify_Starter_Sites_Export {
 				$where .= $wpdb->prepare( " AND {$wpdb->posts}.post_author = %d", $args['author'] );
 
 			if ( $args['start_date'] )
-				$where .= $wpdb->prepare( " AND {$wpdb->posts}.post_date >= %s", date( 'Y-m-d', strtotime($args['start_date']) ) );
+				$where .= $wpdb->prepare( " AND {$wpdb->posts}.post_date >= %s", gmdate( 'Y-m-d', strtotime($args['start_date']) ) );
 
 			if ( $args['end_date'] )
-				$where .= $wpdb->prepare( " AND {$wpdb->posts}.post_date < %s", date( 'Y-m-d', strtotime('+1 month', strtotime($args['end_date'])) ) );
+				$where .= $wpdb->prepare( " AND {$wpdb->posts}.post_date < %s", gmdate( 'Y-m-d', strtotime('+1 month', strtotime($args['end_date'])) ) );
 		}
 
 		/**
@@ -148,7 +154,8 @@ class Customify_Starter_Sites_Export {
 		$where.= " AND {$wpdb->posts}.post_mime_type NOT IN ('image/jpeg', 'image/jpg', 'image/png' ) ";
 
 		// Grab a snapshot of post IDs, just in case it changes during the export.
-		$post_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} $join WHERE $where" );
+		// $join and $where are assembled above from $wpdb->prepare() fragments and hard-coded SQL; this one-off export query is not cached by design.
+		$post_ids = $wpdb->get_col( "SELECT ID FROM {$wpdb->posts} $join WHERE $where" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $join/$where built from $wpdb->prepare() fragments; one-off export query.
 
 		/*
 		 * Get the requested terms ready, empty unless posts filtered by category
@@ -164,7 +171,10 @@ class Customify_Starter_Sites_Export {
 			$tags = (array) get_tags( array( 'get' => 'all' ) );
 
 			$custom_taxonomies = get_taxonomies( array( '_builtin' => false ) );
-			$custom_terms = (array) get_terms( $custom_taxonomies, array( 'get' => 'all' ) );
+			$custom_terms = (array) get_terms( array(
+				'taxonomy' => $custom_taxonomies,
+				'get'      => 'all',
+			) );
 
 			// Put categories in order with no child going before its parent.
 			while ( $cat = array_shift( $categories ) ) {
@@ -295,7 +305,7 @@ class Customify_Starter_Sites_Export {
 		function custstsi_wxr_term_meta( $term ) {
 			global $wpdb;
 
-			$termmeta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->termmeta WHERE term_id = %d", $term->term_id ) );
+			$termmeta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->termmeta WHERE term_id = %d", $term->term_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off export read via prepared statement.
 
 			foreach ( $termmeta as $meta ) {
 				/**
@@ -310,6 +320,7 @@ class Customify_Starter_Sites_Export {
 				 * @param string $meta_key Current meta key.
 				 * @param object $meta     Current meta object.
 				 */
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress export hook, re-used for compatibility with the standard export flow.
 				if ( ! apply_filters( 'wxr_export_skip_termmeta', false, $meta->meta_key, $meta ) ) {
 					printf( "\t\t<wp:termmeta>\n\t\t\t<wp:meta_key>%s</wp:meta_key>\n\t\t\t<wp:meta_value>%s</wp:meta_value>\n\t\t</wp:termmeta>\n", esc_xml( $meta->meta_key ), esc_xml( $meta->meta_value ) );
 				} 
@@ -336,7 +347,8 @@ class Customify_Starter_Sites_Export {
 			}
 
 			$authors = array();
-			$results = $wpdb->get_results( "SELECT DISTINCT post_author FROM $wpdb->posts WHERE post_status != 'auto-draft' $and" );
+			// $and is built only from absint()-cast IDs, so it contains integers only; one-off export query, not cached.
+			$results = $wpdb->get_results( "SELECT DISTINCT post_author FROM $wpdb->posts WHERE post_status != 'auto-draft' $and" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $and contains only absint()-cast integer IDs.
 			foreach ( (array) $results as $result )
 				$authors[] = get_userdata( $result->post_author );
 
@@ -485,7 +497,7 @@ class Customify_Starter_Sites_Export {
 
 				<?php
 				/** This action is documented in wp-includes/feed-rss2.php */
-				do_action( 'rss2_head' );
+				do_action( 'rss2_head' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress export hook, re-used for compatibility with the standard export flow.
 
 
 				/**
@@ -515,8 +527,10 @@ class Customify_Starter_Sites_Export {
 
 					// Fetch 20 posts at a time rather than loading the entire table into memory.
 					while ( $next_posts = array_splice( $post_ids, 0, 20 ) ) {
+						$next_posts = array_map( 'absint', $next_posts );
 						$where = 'WHERE ID IN (' . join( ',', $next_posts ) . ')';
-						$posts = $wpdb->get_results( "SELECT * FROM {$wpdb->posts} $where" );
+						// $where lists absint()-cast post IDs only; one-off export query, not cached.
+						$posts = $wpdb->get_results( "SELECT * FROM {$wpdb->posts} $where" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $where contains only absint()-cast integer IDs.
 
 						// Begin Loop.
 						foreach ( $posts as $post ) {
@@ -545,6 +559,7 @@ class Customify_Starter_Sites_Export {
         <item>
             <title><?php
 				/** This filter is documented in wp-includes/feed.php */
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress export hook, re-used for compatibility with the standard export flow.
 				echo esc_html( apply_filters( 'the_title_rss', $post->post_title ) );
 				?></title>
             <link><?php echo esc_url( get_permalink() ); ?></link>
@@ -560,6 +575,7 @@ class Customify_Starter_Sites_Export {
 				 *
 				 * @param string $post_content Content of the current post.
 				 */
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress export hook, re-used for compatibility with the standard export flow.
 				echo esc_xml( apply_filters( 'the_content_export', $post->post_content ) );
 				?></content:encoded>
             <excerpt:encoded><?php
@@ -570,6 +586,7 @@ class Customify_Starter_Sites_Export {
 				 *
 				 * @param string $post_excerpt Excerpt for the current post.
 				 */
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress export hook, re-used for compatibility with the standard export flow.
 				echo esc_xml( apply_filters( 'the_excerpt_export', $post->post_excerpt ) );
 				?></excerpt:encoded>
             <wp:post_id><?php echo intval( $post->ID ); ?></wp:post_id>
@@ -588,7 +605,7 @@ class Customify_Starter_Sites_Export {
                 <wp:attachment_url><?php echo esc_xml( wp_get_attachment_url( $post->ID ) ); ?></wp:attachment_url>
 			<?php 	endif; ?>
 			<?php 	custstsi_wxr_post_taxonomy(); ?>
-			<?php	$postmeta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->postmeta WHERE post_id = %d", $post->ID ) );
+			<?php	$postmeta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->postmeta WHERE post_id = %d", $post->ID ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off export read via prepared statement.
 			foreach ( $postmeta as $meta ) :
 				/**
 				 * Filters whether to selectively skip post meta used for WXR exports.
@@ -602,6 +619,7 @@ class Customify_Starter_Sites_Export {
 				 * @param string $meta_key Current meta key.
 				 * @param object $meta     Current meta object.
 				 */
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress export hook, re-used for compatibility with the standard export flow.
 				if ( apply_filters( 'wxr_export_skip_postmeta', false, $meta->meta_key, $meta ) )
 					continue;
 
@@ -613,7 +631,7 @@ class Customify_Starter_Sites_Export {
                 </wp:postmeta>
 			<?php	endforeach;
 
-			$_comments = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->comments WHERE comment_post_ID = %d AND comment_approved <> 'spam'", $post->ID ) );
+			$_comments = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->comments WHERE comment_post_ID = %d AND comment_approved <> 'spam'", $post->ID ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off export read via prepared statement.
 			$comments = array_map( 'get_comment', $_comments );
 			foreach ( $comments as $c ) : ?>
                 <wp:comment>
@@ -629,7 +647,7 @@ class Customify_Starter_Sites_Export {
                     <wp:comment_type><?php echo esc_xml( $c->comment_type ); ?></wp:comment_type>
                     <wp:comment_parent><?php echo intval( $c->comment_parent ); ?></wp:comment_parent>
                     <wp:comment_user_id><?php echo intval( $c->user_id ); ?></wp:comment_user_id>
-					<?php		$c_meta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->commentmeta WHERE comment_id = %d", $c->comment_ID ) );
+					<?php		$c_meta = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->commentmeta WHERE comment_id = %d", $c->comment_ID ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One-off export read via prepared statement.
 					foreach ( $c_meta as $meta ) :
 						/**
 						 * Filters whether to selectively skip comment meta used for WXR exports.
@@ -643,6 +661,7 @@ class Customify_Starter_Sites_Export {
 						 * @param string $meta_key Current meta key.
 						 * @param object $meta     Current meta object.
 						 */
+						// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WordPress export hook, re-used for compatibility with the standard export flow.
 						if ( apply_filters( 'wxr_export_skip_commentmeta', false, $meta->meta_key, $meta ) ) {
 							continue;
 						}
@@ -661,12 +680,23 @@ class Customify_Starter_Sites_Export {
 
 }
 
-// phpcs:enable
-
 function customify_starter_sites_export_wp( $args = array() ){
-	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Invoked from core export flow after capability check and export nonce (export.php).
-	if ( isset( $_GET['download'], $_GET['content'], $_GET['from_customify'] ) ) {
-		new Customify_Starter_Sites_Export( $args );
+	// This runs on the core `export_wp` action, fired from wp-admin/export.php.
+	// Our starter-site export mode is opted into with the `from_customify`
+	// parameter, which must be accompanied by this plugin's nonce. Without a
+	// valid nonce we do nothing and let core run its normal export.
+	if ( ! isset( $_GET['from_customify'], $_GET['_customify_nonce'] ) ) {
+		return;
+	}
+	if ( ! current_user_can( 'export' ) ) {
+		return;
+	}
+	if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_GET['_customify_nonce'] ) ), 'customify_starter_sites' ) ) {
+		return;
+	}
+	if ( isset( $_GET['download'], $_GET['content'] ) ) {
+		$from_customify = sanitize_key( wp_unslash( $_GET['from_customify'] ) );
+		new Customify_Starter_Sites_Export( $args, $from_customify );
 	}
 }
 add_action( 'export_wp', 'customify_starter_sites_export_wp' );

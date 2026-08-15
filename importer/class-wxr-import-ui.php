@@ -84,7 +84,7 @@ class Customify_Starter_Sites_WXR_Import_UI
 
 	public function import()
 	{
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce verified in Customify_Starter_Sites_Ajax::ajax_import_content() before import runs.
+		check_ajax_referer( 'customify_starter_sites', 'nonce' );
 		$this->id = isset( $_REQUEST['id'] ) ? absint( wp_unslash( $_REQUEST['id'] ) ) : 0;
 		$source_url = get_post_meta($this->id, '_customify_starter_source_url', true);
 		$file = get_attached_file($this->id);

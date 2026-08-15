@@ -79,7 +79,7 @@ class Customify_Starter_Sites_Plugin {
 			wp_send_json_error( array( 'message' => 'access_denied' ), 403 );
 		}
 
-		$slug = isset( $_REQUEST['plugin'] ) ? sanitize_key( wp_unslash( $_REQUEST['plugin'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce checked above.
+		$slug = isset( $_REQUEST['plugin'] ) ? sanitize_key( wp_unslash( $_REQUEST['plugin'] ) ) : '';
 
 		if ( '' === $slug ) {
 			wp_send_json_error( array( 'message' => 'invalid_plugin' ), 400 );
@@ -188,7 +188,7 @@ class Customify_Starter_Sites_Plugin {
 			wp_send_json_error( array( 'message' => 'access_denied' ), 403 );
 		}
 
-		$slug = isset( $_REQUEST['plugin'] ) ? sanitize_key( wp_unslash( $_REQUEST['plugin'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce checked above.
+		$slug = isset( $_REQUEST['plugin'] ) ? sanitize_key( wp_unslash( $_REQUEST['plugin'] ) ) : '';
 
 		if ( '' === $slug ) {
 			wp_send_json_error( array( 'message' => 'invalid_plugin' ), 400 );

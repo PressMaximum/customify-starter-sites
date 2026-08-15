@@ -62,16 +62,3 @@ if ( is_admin() ) {
 	new Customify_Starter_Sites_Ajax();
 }
 
-if ( is_admin() ) {
-	function customify_starter_sites_admin_footer( $html ) {
-		if ( isset( $_GET['dev'] ) && current_user_can( 'export' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only developer links.
-			$sc              = get_current_screen();
-			$starter_screens = array( 'customify_page_customify-starter-sites', 'toplevel_page_customify-starter-sites' );
-			if ( $sc && in_array( $sc->id, $starter_screens, true ) ) {
-				$html = '<a class="page-title-action" href="' . esc_url( admin_url( 'export.php?content=all&download=true&from_customify=placeholder' ) ) . '">Export XML Placeholder</a> - <a class="page-title-action" href="' . esc_url( admin_url( 'export.php?content=all&download=true&from_customify' ) ) . '">Export XML</a> - <a class="page-title-action" href="' . esc_url( wp_nonce_url( admin_url( 'admin-ajax.php?action=cs_export' ), 'customify_starter_sites', 'nonce' ) ) . '">Export Config</a>';
-			}
-		}
-		return $html;
-	}
-	add_filter( 'update_footer', 'customify_starter_sites_admin_footer', 199 );
-}

@@ -98,11 +98,44 @@ class Customify_Starter_Sites {
 
     function page(){
         echo '<div class="wrap">';
-        echo '<h1 class="wp-heading-inline">' . esc_html__( 'Customify Site Library', 'customify-starter-sites' ) . '</h1><hr class="wp-header-end">';
+        echo '<h1 class="wp-heading-inline">' . esc_html__( 'Customify Site Library', 'customify-starter-sites' ) . '</h1>';
+        $this->export_links();
+        echo '<hr class="wp-header-end">';
         $this->admin_notice();
         require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/dashboard.php';
         require_once CUSTOMIFY_STARTER_SITES_PATH.'/templates/modal.php';
         echo '</div>';
+    }
+
+    /**
+     * Render the starter-site export links (for demo authors).
+     *
+     * Shown only to users who can export. Each link carries the plugin nonce
+     * that customify_starter_sites_export_wp() verifies before it runs.
+     */
+    function export_links(){
+        if ( ! current_user_can( 'export' ) ) {
+            return;
+        }
+
+        $placeholder_url = wp_nonce_url(
+            admin_url( 'export.php?content=all&download=true&from_customify=placeholder' ),
+            'customify_starter_sites',
+            '_customify_nonce'
+        );
+        $full_url = wp_nonce_url(
+            admin_url( 'export.php?content=all&download=true&from_customify=1' ),
+            'customify_starter_sites',
+            '_customify_nonce'
+        );
+
+        printf(
+            ' <a class="page-title-action" href="%1$s">%2$s</a> <a class="page-title-action" href="%3$s">%4$s</a>',
+            esc_url( $placeholder_url ),
+            esc_html__( 'Export XML (placeholder)', 'customify-starter-sites' ),
+            esc_url( $full_url ),
+            esc_html__( 'Export XML', 'customify-starter-sites' )
+        );
     }
 
     function get_installed_plugins(){

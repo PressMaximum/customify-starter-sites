@@ -360,16 +360,14 @@ class Customify_Starter_Sites_Ajax {
 	}
 
 	function ajax_download_files() {
-		$this->verify_ajax_referer();
+		check_ajax_referer( 'customify_starter_sites', 'nonce' );
 		$this->user_can();
 
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Nonce verified in verify_ajax_referer() above.
 		// try to get files exists
 		$slug             = isset( $_REQUEST['site_slug'] ) ? sanitize_key( wp_unslash( $_REQUEST['site_slug'] ) ) : '';
 		$builder          = isset( $_REQUEST['builder'] ) ? sanitize_key( wp_unslash( $_REQUEST['builder'] ) ) : '';
 		$resources        = isset( $_REQUEST['resources'] ) && is_array( $_REQUEST['resources'] ) ? map_deep( wp_unslash( $_REQUEST['resources'] ), 'sanitize_text_field' ) : array();
 		$placeholder_only = isset( $_REQUEST['placeholder_only'] ) ? wp_validate_boolean( sanitize_text_field( wp_unslash( $_REQUEST['placeholder_only'] ) ) ) : true;
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		$placeholder_only = (bool) apply_filters( 'customify_import_placeholder_only', $placeholder_only );
 
@@ -634,12 +632,10 @@ class Customify_Starter_Sites_Ajax {
 	}
 
 	function ajax_import_options() {
-		$this->verify_ajax_referer();
+		check_ajax_referer( 'customify_starter_sites', 'nonce' );
 		$this->user_can();
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- Nonce verified in verify_ajax_referer() above.
 		$id     = isset( $_REQUEST['id'] ) ? absint( wp_unslash( $_REQUEST['id'] ) ) : 0;
 		$xml_id = isset( $_REQUEST['xml_id'] ) ? absint( wp_unslash( $_REQUEST['xml_id'] ) ) : 0;
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		$file       = $id ? get_attached_file( $id ) : false;
 		$source_url = $id ? get_post_meta( $id, '_customify_starter_source_url', true ) : '';
 
