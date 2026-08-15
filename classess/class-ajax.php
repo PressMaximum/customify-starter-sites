@@ -29,6 +29,21 @@ class Customify_Starter_Sites_Ajax {
 		check_ajax_referer( 'customify_starter_sites', 'nonce' );
 	}
 
+	/**
+	 * Option name WordPress core uses to store a widget type's instances.
+	 *
+	 * The `widget_{$id_base}` option namespace is defined and owned by
+	 * WordPress core (WP_Widget), not by this plugin. This helper simply
+	 * reproduces that core naming scheme so widget instances can be read and
+	 * written during import/export; it is not a plugin-owned option prefix.
+	 *
+	 * @param string $id_base Widget ID base, e.g. "text" or "nav_menu".
+	 * @return string Core option name, e.g. "widget_text".
+	 */
+	protected function core_widget_option_name( $id_base ) {
+		return sprintf( 'widget_%s', (string) $id_base );
+	}
+
 	function ajax_import__check() {
 		$this->verify_ajax_referer();
 		$this->user_can();
@@ -125,7 +140,7 @@ class Customify_Starter_Sites_Ajax {
 		foreach ( $available_widgets as $widget_data ) {
 
 			// Get all instances for this ID base
-			$instances = get_option( 'widget_' . $widget_data['id_base'] );
+			$instances = get_option( $this->core_widget_option_name( $widget_data['id_base'] ) );
 
 			// Have instances
 			if ( ! empty( $instances ) ) {
@@ -772,8 +787,7 @@ class Customify_Starter_Sites_Ajax {
 		foreach ( $wp_registered_widget_controls as $widget_id => $widget ) {
 			$base_id = isset( $widget['id_base'] ) ? $widget['id_base'] : null;
 			if ( ! empty( $base_id ) && ! isset( $widget_instances[ $base_id ] ) ) {
-				// WordPress core stores widget instances in the required widget_{$id_base} option namespace.
-				$widget_option_name           = 'widget_' . $base_id;
+				$widget_option_name           = $this->core_widget_option_name( $base_id );
 				$widget_instances[ $base_id ] = get_option( $widget_option_name );
 			}
 		}
@@ -815,8 +829,7 @@ class Customify_Starter_Sites_Ajax {
 
 				$base_id = preg_replace( '/-[0-9]+$/', '', $widget_instance_id );
 				if ( isset( $widget_instances[ $base_id ] ) ) {
-					// This is the storage schema used by WP_Widget, not a plugin-owned option.
-					$widget_option_name      = 'widget_' . $base_id;
+					$widget_option_name      = $this->core_widget_option_name( $base_id );
 					$single_widget_instances = get_option( $widget_option_name );
 					$single_widget_instances = ! empty( $single_widget_instances ) ? $single_widget_instances : array( '_multiwidget' => 1 );
 
@@ -978,7 +991,6 @@ class Customify_Starter_Sites_Ajax {
 			'customify_starter_sites_allowed_download_hosts',
 			array(
 				'customifysites.com',
-				'raw.githubusercontent.com',
 			)
 		);
 		foreach ( $allowed as $allowed_host ) {

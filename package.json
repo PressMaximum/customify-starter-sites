@@ -1,6 +1,6 @@
 {
   "name": "customify-starter-sites",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "main": "Gruntfile.js",
   "engines": {
     "node": ">= 18"

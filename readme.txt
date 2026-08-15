@@ -1,9 +1,9 @@
 === Customify Starter Sites ===
 Contributors: pressmaximum
 Tags: importer, demo, starter sites, customify
-Requires at least: 5.0
+Requires at least: 7.0
 Tested up to: 7.0
-Stable tag: 0.0.20
+Stable tag: 0.0.21
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -21,11 +21,9 @@ This plugin connects to the Customify Starter Sites service at `https://customif
 
 * When an administrator opens Customify > Starter Sites (or the top-level Customify Sites menu when the Customify theme is inactive), the browser requests the site catalog from `https://customifysites.com/wp-json/wp/v2.1/sites/`. The selected filters, search text, and page-builder choice are sent with the request, together with standard web-request information such as the visitor's IP address and user agent.
 * When an administrator starts an import, the site downloads the selected XML, JSON, images, and other public demo assets identified by that catalog. A small set of legacy demos also requests Elementor metadata from `https://customifysites.com/wp-content/uploads/demo-meta/`.
-* When an administrator opens a demo preview, the selected public demo is embedded in an iframe, so the browser connects to the demo URL returned by the service.
+* When an administrator opens a demo preview, the selected public demo URL returned by the service is opened in a new browser tab.
 
 The service is provided by PressMaximum: [Terms of Service](https://pressmaximum.com/terms-and-conditions/) and [Privacy Policy](https://pressmaximum.com/privacy-policy/).
-
-Some starter XML or JSON files may be served from `https://raw.githubusercontent.com`. In that case, the site requests only the selected public starter file and sends standard web-request information such as the site's server IP address. GitHub provides that service: [Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) and [Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 
 == Development ==
 
@@ -38,6 +36,12 @@ Human-readable source and build tooling are available at [github.com/PressMaximu
 3. Open **Customify → Starter Sites** when the Customify theme is active. Otherwise, open the top-level **Customify Sites** menu.
 
 == Changelog ==
+
+= 0.0.21 =
+* Escape all WXR export output with the core esc_xml() function instead of a custom helper.
+* Remove raw.githubusercontent.com from the download allowlist; starter files are served only by the Customify Starter Sites service.
+* Read and write core widget instances through a documented helper so the core widget_{id_base} option namespace is not mistaken for a plugin prefix.
+* Raise the minimum WordPress version to 7.0.
 
 = 0.0.20 =
 * Replace the admin starter-site preview iframe with a link that opens the public demo in a new browser tab, so no external site is embedded in the dashboard.
