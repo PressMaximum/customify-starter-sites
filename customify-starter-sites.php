@@ -7,7 +7,7 @@ Plugin URI: https://wpcustomify.com
 Description: Import free sites built with the Customify theme.
 Author: pressmaximum
 Author URI: https://pressmaximum.com/customify
-Version: 0.0.21
+Version: 0.0.22
 Requires at least: 7.0
 Requires PHP: 7.4
 Text Domain: customify-starter-sites
@@ -16,7 +16,7 @@ License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
-define( 'CUSTOMIFY_STARTER_SITES_VERSION', '0.0.21' );
+define( 'CUSTOMIFY_STARTER_SITES_VERSION', '0.0.22' );
 define( 'CUSTOMIFY_STARTER_SITES_FILE', __FILE__ );
 define( 'CUSTOMIFY_STARTER_SITES_URL', untrailingslashit( plugins_url( '', CUSTOMIFY_STARTER_SITES_FILE ) ) );
 define( 'CUSTOMIFY_STARTER_SITES_PATH', plugin_dir_path( CUSTOMIFY_STARTER_SITES_FILE ) );

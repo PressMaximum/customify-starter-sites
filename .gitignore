@@ -17,3 +17,7 @@ npm-debug.log
 *.css.map
 
 *.zip
+
+# wp-deploy-cli secrets
+.env
+.env.*

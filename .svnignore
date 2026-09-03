@@ -1,0 +1,20 @@
+# Dev/build files excluded from the wordpress.org SVN build.
+.env
+.env.example
+.git
+.gitignore
+.gitattributes
+.distignore
+.svnignore
+.sass-cache
+node_modules
+dist
+releases
+Gruntfile.js
+package.json
+package-lock.json
+composer.json
+composer.lock
+phpcs.xml
+README.md
+release.sh

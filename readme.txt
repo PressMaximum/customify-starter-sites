@@ -2,8 +2,8 @@
 Contributors: pressmaximum
 Tags: importer, demo, starter sites, customify
 Requires at least: 7.0
-Tested up to: 7.0
-Stable tag: 0.0.21
+Tested up to: 7.1
+Stable tag: 0.0.22
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -36,6 +36,10 @@ Human-readable source and build tooling are available at [github.com/PressMaximu
 3. Open **Customify → Starter Sites** when the Customify theme is active. Otherwise, open the top-level **Customify Sites** menu.
 
 == Changelog ==
+
+= 0.0.22 =
+* Verify escaping and nonce checks directly in code instead of suppressing them, and remove the file-level PHPCS disable from the exporter.
+* Add capability- and nonce-checked export links to the Starter Sites screen and drop the old developer query-string links.
 
 = 0.0.21 =
 * Escape all WXR export output with the core esc_xml() function instead of a custom helper.
