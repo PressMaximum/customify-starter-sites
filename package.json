@@ -1,30 +1,20 @@
 {
-  "name": "customify-starter-sites",
-  "version": "0.0.22",
-  "main": "Gruntfile.js",
-  "engines": {
-    "node": ">= 18"
-  },
-  "devDependencies": {
-    "autoprefixer": "^7.1.5",
-    "grunt": "^1.4.1",
-    "grunt-bumpup": "^0.6.3",
-    "grunt-contrib-clean": "^1.1.0",
-    "grunt-contrib-compress": "^1.4.3",
-    "grunt-contrib-concat": "^0.4.0",
-    "grunt-contrib-copy": "^1.0.0",
-    "grunt-contrib-cssmin": "^2.2.1",
-    "grunt-contrib-jshint": "^2.0.0",
-    "grunt-contrib-sass": "^1.0.0",
-    "grunt-contrib-uglify": "^5.2.2",
-    "grunt-contrib-watch": "^1.1.0",
-    "grunt-postcss": "^0.9.0",
-    "grunt-rtlcss": "^2.0.1",
-    "grunt-text-replace": "^0.4.0",
-    "grunt-wp-i18n": "^1.0.2"
-  },
-  "dependencies": {
-    "copy": "^0.3.1",
-    "rtlcss": "^2.2.1"
-  }
+	"name": "customify-starter-sites",
+	"version": "0.0.22",
+	"private": true,
+	"description": "Build pipeline for the Customify Starter Sites importer React UI.",
+	"scripts": {
+		"start": "wp-scripts start --webpack-src-dir=src/generic --output-path=inc/generic/build",
+		"build": "wp-scripts build --webpack-src-dir=src/generic --output-path=inc/generic/build && npm run protect-asset",
+		"protect-asset": "node -e \"const f='inc/generic/build/admin.asset.php',fs=require('fs');let s=fs.readFileSync(f,'utf8');if(!s.includes('ABSPATH')){s=s.replace(/^<\\?php\\s*return/,\\\"<?php if ( ! defined( 'ABSPATH' ) ) { exit; } return\\\");fs.writeFileSync(f,s);}\"",
+		"format": "wp-scripts format src/",
+		"lint:js": "wp-scripts lint-js src/"
+	},
+	"devDependencies": {
+		"@wordpress/browserslist-config": "^6.48.0",
+		"@wordpress/scripts": "^30"
+	},
+	"dependencies": {
+		"@wordpress/icons": "^13.1.0"
+	}
 }

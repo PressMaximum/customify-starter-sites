@@ -1,10 +1,8 @@
 <?php
-defined( 'ABSPATH' ) || exit;
-
 /*
 Plugin Name: Customify Starter Sites
 Plugin URI: https://wpcustomify.com
-Description: Import free sites built with the Customify theme.
+Description: Browse Customify starter templates, preview them live, and import the one you love — pages, menus, plugins, color palette and typography all in place.
 Author: pressmaximum
 Author URI: https://pressmaximum.com/customify
 Version: 0.0.22
@@ -16,49 +14,46 @@ License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
+defined( 'ABSPATH' ) || exit;
+
 define( 'CUSTOMIFY_STARTER_SITES_VERSION', '0.0.22' );
 define( 'CUSTOMIFY_STARTER_SITES_FILE', __FILE__ );
-define( 'CUSTOMIFY_STARTER_SITES_URL', untrailingslashit( plugins_url( '', CUSTOMIFY_STARTER_SITES_FILE ) ) );
-define( 'CUSTOMIFY_STARTER_SITES_PATH', plugin_dir_path( CUSTOMIFY_STARTER_SITES_FILE ) );
+define( 'CUSTOMIFY_STARTER_SITES_URL', trailingslashit( plugins_url( '', CUSTOMIFY_STARTER_SITES_FILE ) ) );
+define( 'CUSTOMIFY_STARTER_SITES_PATH', trailingslashit( plugin_dir_path( CUSTOMIFY_STARTER_SITES_FILE ) ) );
 
 /**
- * Safely decode legacy serialized arrays without instantiating arbitrary classes.
+ * Boot the importer.
  *
- * New starter-site configuration must use JSON. This helper only exists for
- * legacy WXR/meta values that WordPress historically serialized.
+ * The importer is a background-job pipeline (cron-spawned runner +
+ * transient-backed job state + REST progress polling) with a React admin
+ * UI. It embeds into the Customify theme dashboard via the Customify
+ * adapter in inc/generic/.
  *
- * @param mixed             $value           Value that may be serialized.
- * @param bool|string[]     $allowed_classes Classes allowed during decoding.
- * @return mixed
+ * Bootstrap fires for admin pageviews, AJAX, REST, and WP-Cron requests
+ * only; front-end (public site) requests are skipped since the importer
+ * has no front-end surface. The REST branch is required because a REST
+ * request has is_admin() === false, so without it the Generic track's
+ * routes would never register and the React UI would 404. The cron
+ * branch is required so the queued import job's action handler exists
+ * when wp-cron.php processes the queue.
  */
-function customify_starter_sites_maybe_unserialize( $value, $allowed_classes = false ) {
-	if ( ! is_string( $value ) || ! is_serialized( $value ) ) {
-		return $value;
+function customify_starter_sites_init() {
+	// REST_REQUEST is defined inside parse_request (after plugins_loaded),
+	// so it is not yet set when this hook fires. Sniff the URL the way WP
+	// core itself does before the constant is available.
+	$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+	$rest_prefix = trailingslashit( rest_get_url_prefix() );
+	$is_rest     = isset( $_GET['rest_route'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only request-type sniff, no state change.
+		|| ( '' !== $rest_prefix && false !== strpos( $request_uri, '/' . trim( $rest_prefix, '/' ) . '/' ) );
+
+	$needs_boot = is_admin()
+		|| ( defined( 'DOING_AJAX' ) && DOING_AJAX )
+		|| ( defined( 'DOING_CRON' ) && DOING_CRON )
+		|| $is_rest;
+	if ( ! $needs_boot ) {
+		return;
 	}
 
-	return unserialize( trim( $value ), array( 'allowed_classes' => $allowed_classes ) );
+	require_once CUSTOMIFY_STARTER_SITES_PATH . 'inc/generic/bootstrap.php';
 }
-
-if ( is_admin() ) {
-	if ( ! class_exists( 'WP_Importer' ) ) {
-		defined( 'WP_LOAD_IMPORTERS' ) || define( 'WP_LOAD_IMPORTERS', true ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- WordPress core importer bootstrap constant.
-		require_once ABSPATH . 'wp-admin/includes/class-wp-importer.php';
-	}
-
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'classess/class-placeholder.php';
-
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'importer/class-logger.php';
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'importer/class-logger-serversentevents.php';
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'importer/class-wxr-importer.php';
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'importer/class-wxr-import-info.php';
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'importer/class-wxr-import-ui.php';
-
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'classess/class-plugin.php';
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'classess/class-sites.php';
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'classess/class-export.php';
-	require_once CUSTOMIFY_STARTER_SITES_PATH . 'classess/class-ajax.php';
-
-	Customify_Starter_Sites::get_instance();
-	new Customify_Starter_Sites_Ajax();
-}
-
+add_action( 'plugins_loaded', 'customify_starter_sites_init' );
