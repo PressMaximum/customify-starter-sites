@@ -1,21 +1,26 @@
-# Dev/build files excluded from the wordpress.org SVN build.
+# Dev/build source & tooling — excluded from the wordpress.org SVN package.
 .env
 .env.example
 .git
 .gitignore
 .gitattributes
+.github
 .distignore
 .svnignore
 .sass-cache
+.wp-env.json
+.wp-env.override.json
+.npmrc
 node_modules
 dist
 releases
+src
+webpack.config.js
 Gruntfile.js
+gruntfile.js
 package.json
 package-lock.json
 pnpm-lock.yaml
-webpack.config.js
-src
 composer.json
 composer.lock
 phpcs.xml
