@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: importer, demo, starter sites, customify
 Requires at least: 7.0
 Tested up to: 7.1
-Stable tag: 0.0.22
+Stable tag: 1.0.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -36,6 +36,13 @@ Human-readable source and build tooling are available at [github.com/PressMaximu
 3. Open **Customify → Starter Sites** when the Customify theme is active. Otherwise, open the top-level **Customify Sites** menu.
 
 == Changelog ==
+
+= 1.0.0 =
+* NEW: Rebuilt starter-site importer — templates now import in the background with a live progress UI, so large sites no longer time out.
+* NEW: Live template preview and a guided wizard for choosing plugins, fonts, and options before importing.
+* NEW: Bundled plugins (including Blocksify) are installed and activated as part of the import; Pro templates prompt for the required Pro plugins.
+* NEW: Fonts install through the WordPress Font Library (WordPress 6.5+).
+* IMPROVED: Fully integrated into the Customify dashboard under the Starter Templates tab.
 
 = 0.0.22 =
 * Verify escaping and nonce checks directly in code instead of suppressing them, and remove the file-level PHPCS disable from the exporter.
