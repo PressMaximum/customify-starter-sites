@@ -1,0 +1,812 @@
+<?php
+/**
+ * Step 4 — apply the template's content.json (terms → posts → menus).
+ *
+ * Ported verbatim from `blocksify-design-importer/includes/Theme/ContentImporter.php`
+ * with the meta-key prefix rebranded `_pmbd_source_ref` → `_ft_source_ref`
+ * so re-imports on a site that's also run blocksify-design-importer don't
+ * stomp each other's idempotency markers.
+ *
+ * Walks the manifest in dependency order, keeping a
+ * `$ref_map[source_ref => new_local_id]` table so every subsequent
+ * reference (post_parent, _thumbnail_id, block attr `{{ref:post:N}}`,
+ * menu item object_ref, etc.) resolves cleanly.
+ *
+ * Two rewrites happen per imported post:
+ *   - `{{ref:(post|term):N(:missing)?}}` → numeric ID from $ref_map.
+ *   - `{{SITE_URL}}`                      → home_url().
+ *
+ * Plus `wp-image-{source_id}` CSS classes get rewritten to the new
+ * attachment ID so Gutenberg recognises them post-import.
+ */
+
+namespace Customify_Starter_Sites\Steps;
+
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+class Content_Importer {
+
+	public const META_SOURCE_REF = '_ft_source_ref';
+
+	/** Whitelisted meta keys whose value is a single attachment / post ID. */
+	private const META_POST_ID_KEYS = [
+		'_thumbnail_id',
+		'_menu_item_object_id',
+		'_menu_item_menu_item_parent',
+		'_product_image_gallery',
+	];
+
+	/**
+	 * @param string                              $content_json_path
+	 * @param array{overwrite_existing?: bool}    $opts
+	 *
+	 * @return array{
+	 *     ref_map: array<string,int>,
+	 *     counts:  array{terms:int, posts:int, attachments:int, menus:int, menu_items:int},
+	 *     warnings: string[]
+	 * }
+	 */
+	public function import( string $content_json_path, array $opts = [] ): array {
+		$raw = @file_get_contents( $content_json_path );
+		if ( false === $raw ) {
+			throw new \RuntimeException( 'Could not read content.json' );
+		}
+		$parsed = json_decode( $raw, true );
+		if ( ! is_array( $parsed ) ) {
+			throw new \RuntimeException( 'content.json is not valid JSON.' );
+		}
+
+		// Bridge PM Submitter's export format into the internal ref-based
+		// shape the rest of this importer walks. Without it every post is
+		// dropped (its `post_type` reads empty) and nothing imports.
+		$parsed = $this->normalize( $parsed );
+
+		$site_url  = untrailingslashit( home_url( '/' ) );
+		$overwrite = ! empty( $opts['overwrite_existing'] );
+
+		$ref_map  = [];
+		$warnings = [];
+		$counts   = [
+			'terms'       => 0,
+			'posts'       => 0,
+			'attachments' => 0,
+			'menus'       => 0,
+			'menu_items'  => 0,
+		];
+
+		if ( $overwrite && ! empty( $parsed['posts'] ) ) {
+			$this->wipe_existing_by_refs( array_column( $parsed['posts'], 'ref' ) );
+		}
+
+		// (1) Terms
+		foreach ( (array) ( $parsed['terms'] ?? [] ) as $term ) {
+			$id = $this->upsert_term( $term, $ref_map );
+			if ( $id > 0 ) {
+				$ref_map[ (string) $term['ref'] ] = $id;
+				$counts['terms']++;
+			}
+		}
+
+		// (2) Posts (attachments + everything except nav_menu_item)
+		foreach ( (array) ( $parsed['posts'] ?? [] ) as $post ) {
+			$type = (string) ( $post['post_type'] ?? '' );
+
+			// Skip posts whose post_type isn't registered locally.
+			// Plugins were installed in step 2 — anything still missing
+			// here is an unmet dependency we can't fulfill. Drop + warn.
+			if ( ! post_type_exists( $type ) ) {
+				$warnings[] = sprintf(
+					'Skipped %s (post_type "%s" not registered).',
+					(string) ( $post['ref'] ?? '?' ),
+					$type
+				);
+				continue;
+			}
+
+			// nav_menu_item handled by the structured menus[] pass below.
+			if ( 'nav_menu_item' === $type ) {
+				continue;
+			}
+
+			if ( 'attachment' === $type ) {
+				$id = $this->upsert_attachment( $post, $ref_map, $site_url, $warnings );
+				if ( $id > 0 ) {
+					$ref_map[ (string) $post['ref'] ] = $id;
+					$counts['attachments']++;
+				}
+			} else {
+				$id = $this->upsert_post( $post, $ref_map, $site_url, $warnings );
+				if ( $id > 0 ) {
+					$ref_map[ (string) $post['ref'] ] = $id;
+					$counts['posts']++;
+				}
+			}
+		}
+
+		// (2.5) Term meta — applied AFTER posts/attachments so refs inside it
+		// (e.g. a product_cat `thumbnail_id` = "{{ref:post:N}}" category image)
+		// resolve against the freshly imported attachments via the now-complete
+		// ref_map. Covers product_cat images + attribute-term data (swatches, order).
+		foreach ( (array) ( $parsed['terms'] ?? [] ) as $term ) {
+			$local = (int) ( $ref_map[ (string) ( $term['ref'] ?? '' ) ] ?? 0 );
+			if ( $local <= 0 || empty( $term['meta'] ) || ! is_array( $term['meta'] ) ) {
+				continue;
+			}
+			foreach ( $term['meta'] as $mkey => $mvals ) {
+				$mkey = (string) $mkey;
+				if ( '' === $mkey ) {
+					continue;
+				}
+				delete_term_meta( $local, $mkey );
+				foreach ( (array) $mvals as $mv ) {
+					$resolved = $this->rewrite_meta_value( $mkey, $mv, $ref_map, $site_url, $warnings );
+					if ( null === $resolved ) {
+						continue;
+					}
+					add_term_meta( $local, $mkey, $resolved );
+				}
+			}
+		}
+
+		// (3) Menus
+		foreach ( (array) ( $parsed['menus'] ?? [] ) as $menu ) {
+			$applied = $this->apply_menu( $menu, $ref_map, $warnings, $site_url );
+			if ( $applied > 0 ) {
+				$counts['menus']++;
+				$counts['menu_items'] += $applied;
+			}
+		}
+
+		return [ 'ref_map' => $ref_map, 'counts' => $counts, 'warnings' => $warnings ];
+	}
+
+	// ------------------------------------------------------------- Normalize
+
+	/**
+	 * Adapt PM Submitter's `content.json` (its own export format — see
+	 * pm-submitter's `ContentExporter`) into the internal ref-based shape the
+	 * rest of this importer consumes.
+	 *
+	 * The submitter emits raw numeric ids (`id`, `parent`, `featured_image`),
+	 * a separate top-level `attachments[]` list, `type`/`status`/`title`/
+	 * `content` field names, and per-taxonomy `terms` maps. This importer was
+	 * ported from the legacy studio format which used opaque `ref` strings,
+	 * inline attachments, and `post_*` field names. Without this bridge every
+	 * post is dropped (`post_type` reads empty → `post_type_exists('')` fails)
+	 * and nothing imports.
+	 *
+	 * Mapping highlights:
+	 *   - id → stable `ref` (`post:{id}` / `term:{id}`) so re-imports match the
+	 *     same `_ft_source_ref` idempotency markers.
+	 *   - top-level `attachments[]` → `posts[]` with `post_type=attachment`,
+	 *     emitted FIRST so a post's `featured_image` / inline `wp-image-{id}`
+	 *     references already sit in the ref_map when the post is inserted.
+	 *   - `featured_image` id → a `_thumbnail_id` meta carrying the
+	 *     `{{ref:post:N}}` placeholder the existing meta-rewrite path resolves.
+	 *   - each nav menu's own `nav_menu` term (not present in `terms[]`) is
+	 *     registered so `apply_menu` can resolve its `term_ref`.
+	 *
+	 * Legacy / already-ref-shaped payloads (no `format_version`, no top-level
+	 * `attachments`, posts already carry `ref`) pass through untouched.
+	 *
+	 * @param array<string,mixed> $parsed
+	 * @return array<string,mixed>
+	 */
+	private function normalize( array $parsed ): array {
+		$looks_submitter = array_key_exists( 'format_version', $parsed )
+			|| array_key_exists( 'attachments', $parsed )
+			|| ( isset( $parsed['posts'][0] ) && is_array( $parsed['posts'][0] )
+				&& array_key_exists( 'id', $parsed['posts'][0] )
+				&& ! array_key_exists( 'ref', $parsed['posts'][0] ) );
+
+		if ( ! $looks_submitter ) {
+			return $parsed;
+		}
+
+		$terms = [];
+		foreach ( (array) ( $parsed['terms'] ?? [] ) as $t ) {
+			$tid = (int) ( $t['term_id'] ?? 0 );
+			if ( $tid <= 0 ) {
+				continue;
+			}
+			$terms[] = [
+				'ref'         => 'term:' . $tid,
+				'taxonomy'    => (string) ( $t['taxonomy'] ?? '' ),
+				'name'        => (string) ( $t['name'] ?? '' ),
+				'slug'        => (string) ( $t['slug'] ?? '' ),
+				'parent_ref'  => ! empty( $t['parent'] ) ? 'term:' . (int) $t['parent'] : '',
+				'description' => (string) ( $t['description'] ?? '' ),
+				'meta'        => ( isset( $t['meta'] ) && is_array( $t['meta'] ) ) ? $t['meta'] : [],
+			];
+		}
+
+		$posts = [];
+
+		foreach ( (array) ( $parsed['attachments'] ?? [] ) as $a ) {
+			$aid = (int) ( $a['id'] ?? 0 );
+			if ( $aid <= 0 ) {
+				continue;
+			}
+			$posts[] = [
+				'ref'         => 'post:' . $aid,
+				'post_type'   => 'attachment',
+				'post_title'  => (string) ( $a['title'] ?? '' ),
+				'post_name'   => '',
+				'post_status' => 'inherit',
+				'attachment'  => [
+					'file' => (string) ( $a['file'] ?? '' ),
+					'mime' => (string) ( $a['mime'] ?? '' ),
+					'alt'  => (string) ( $a['alt'] ?? '' ),
+				],
+			];
+		}
+
+		foreach ( (array) ( $parsed['posts'] ?? [] ) as $p ) {
+			$pid = (int) ( $p['id'] ?? 0 );
+			if ( $pid <= 0 ) {
+				continue;
+			}
+
+			$term_refs = [];
+			foreach ( (array) ( $p['terms'] ?? [] ) as $ids ) {
+				foreach ( (array) $ids as $tid ) {
+					$tid = (int) $tid;
+					if ( $tid > 0 ) {
+						$term_refs[] = [ 'ref' => 'term:' . $tid ];
+					}
+				}
+			}
+
+			$meta = [];
+			foreach ( (array) ( $p['meta'] ?? [] ) as $mkey => $mvals ) {
+				foreach ( (array) $mvals as $mv ) {
+					$meta[] = [ 'key' => (string) $mkey, 'value' => maybe_unserialize( (string) $mv ) ];
+				}
+			}
+			$fi = (int) ( $p['featured_image'] ?? 0 );
+			if ( $fi > 0 ) {
+				$meta[] = [ 'key' => '_thumbnail_id', 'value' => '{{ref:post:' . $fi . '}}' ];
+			}
+
+			$posts[] = [
+				'ref'             => 'post:' . $pid,
+				'post_type'       => (string) ( $p['type'] ?? 'post' ),
+				'post_title'      => (string) ( $p['title'] ?? '' ),
+				'post_name'       => (string) ( $p['slug'] ?? '' ),
+				'post_status'     => (string) ( $p['status'] ?? 'publish' ),
+				'post_content'    => (string) ( $p['content'] ?? '' ),
+				'post_excerpt'    => (string) ( $p['excerpt'] ?? '' ),
+				'menu_order'      => (int) ( $p['menu_order'] ?? 0 ),
+				'post_parent_ref' => ! empty( $p['parent'] ) ? 'post:' . (int) $p['parent'] : '',
+				'post_date_gmt'   => (string) ( $p['date_gmt'] ?? '' ),
+				'meta'            => $meta,
+				'terms'           => $term_refs,
+			];
+		}
+
+		$menus = [];
+		foreach ( (array) ( $parsed['menus'] ?? [] ) as $m ) {
+			$mtid = (int) ( $m['term_id'] ?? 0 );
+			if ( $mtid <= 0 ) {
+				continue;
+			}
+			// The nav_menu term isn't in `terms[]` — register it so apply_menu
+			// resolves `term_ref` and re-imports stay idempotent.
+			$terms[] = [
+				'ref'         => 'term:' . $mtid,
+				'taxonomy'    => 'nav_menu',
+				'name'        => (string) ( $m['name'] ?? '' ),
+				'slug'        => (string) ( $m['slug'] ?? '' ),
+				'parent_ref'  => '',
+				'description' => '',
+			];
+
+			$items = [];
+			foreach ( (array) ( $m['items'] ?? [] ) as $it ) {
+				$type       = (string) ( $it['type'] ?? 'custom' );
+				$object_id  = (int) ( $it['object_id'] ?? 0 );
+				$object_ref = '';
+				if ( $object_id > 0 ) {
+					$object_ref = ( 'taxonomy' === $type ) ? 'term:' . $object_id : 'post:' . $object_id;
+				}
+				$items[] = [
+					'title'         => (string) ( $it['title'] ?? '' ),
+					'type'          => $type,
+					'object'        => (string) ( $it['object'] ?? '' ),
+					'object_ref'    => $object_ref,
+					'menu_order'    => (int) ( $it['menu_order'] ?? 0 ),
+					'url'           => (string) ( $it['url'] ?? '' ),
+					'classes'       => [],
+					'target'        => '',
+					'src_id'        => (int) ( $it['id'] ?? 0 ),
+					'parent_src_id' => (int) ( $it['parent'] ?? 0 ),
+				];
+			}
+			$menus[] = [ 'term_ref' => 'term:' . $mtid, 'items' => $items ];
+		}
+
+		return [ 'terms' => $terms, 'posts' => $posts, 'menus' => $menus ];
+	}
+
+	// ---------------------------------------------------------------- Terms
+
+	private function upsert_term( array $term, array $ref_map ): int {
+		$taxonomy = (string) ( $term['taxonomy'] ?? '' );
+		$slug     = (string) ( $term['slug'] ?? '' );
+		$name     = (string) ( $term['name'] ?? $slug );
+		if ( '' === $taxonomy || '' === $slug ) {
+			return 0;
+		}
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return 0;
+		}
+
+		$parent_id = 0;
+		if ( ! empty( $term['parent_ref'] ) ) {
+			$parent_id = (int) ( $ref_map[ (string) $term['parent_ref'] ] ?? 0 );
+		}
+
+		$existing = get_term_by( 'slug', $slug, $taxonomy );
+		if ( $existing && ! is_wp_error( $existing ) ) {
+			wp_update_term( (int) $existing->term_id, $taxonomy, [
+				'name'        => $name,
+				'description' => (string) ( $term['description'] ?? $existing->description ),
+				'parent'      => $parent_id,
+			] );
+			return (int) $existing->term_id;
+		}
+
+		$res = wp_insert_term( $name, $taxonomy, [
+			'slug'        => $slug,
+			'description' => (string) ( $term['description'] ?? '' ),
+			'parent'      => $parent_id,
+		] );
+		return is_wp_error( $res ) ? 0 : (int) $res['term_id'];
+	}
+
+	// ---------------------------------------------------------- Attachments
+
+	private function upsert_attachment( array $post, array $ref_map, string $site_url, array &$warnings ): int {
+		$att  = (array) ( $post['attachment'] ?? [] );
+		$file = (string) ( $att['file'] ?? '' );
+		$mime = (string) ( $att['mime'] ?? '' );
+		if ( '' === $file || '' === $mime ) {
+			$warnings[] = sprintf( 'Attachment %s missing file/mime — skipped.', (string) ( $post['ref'] ?? '?' ) );
+			return 0;
+		}
+
+		$upload    = wp_get_upload_dir();
+		$full_path = trailingslashit( (string) ( $upload['basedir'] ?? '' ) ) . $file;
+		$full_url  = trailingslashit( (string) ( $upload['baseurl'] ?? '' ) ) . $file;
+
+		if ( ! file_exists( $full_path ) ) {
+			$warnings[] = sprintf( 'Attachment file missing on disk: %s', $file );
+			// Continue — wp_posts row + metadata still useful for refs.
+		}
+
+		$existing_id = $this->find_by_source_ref( (string) $post['ref'] );
+
+		$postarr = [
+			'post_title'     => (string) ( $post['post_title'] ?? '' ),
+			'post_name'      => (string) ( $post['post_name'] ?? '' ),
+			'post_status'    => (string) ( $post['post_status'] ?? 'inherit' ),
+			'post_type'      => 'attachment',
+			'post_mime_type' => $mime,
+			'guid'           => $full_url,
+		];
+		if ( ! empty( $post['post_parent_ref'] ) ) {
+			$postarr['post_parent'] = (int) ( $ref_map[ (string) $post['post_parent_ref'] ] ?? 0 );
+		}
+
+		if ( $existing_id > 0 ) {
+			$postarr['ID'] = $existing_id;
+			$id = wp_update_post( wp_slash( $postarr ), true );
+		} else {
+			$id = wp_insert_attachment( wp_slash( $postarr ), $full_path );
+		}
+		if ( is_wp_error( $id ) || ! $id ) {
+			$warnings[] = 'Failed to insert attachment: ' . ( is_wp_error( $id ) ? $id->get_error_message() : 'unknown' );
+			return 0;
+		}
+		$id = (int) $id;
+
+		update_post_meta( $id, '_wp_attached_file', $file );
+		if ( ! empty( $att['alt'] ) ) {
+			update_post_meta( $id, '_wp_attachment_image_alt', (string) $att['alt'] );
+		}
+		update_post_meta( $id, self::META_SOURCE_REF, (string) $post['ref'] );
+
+		// Attachment metadata + intermediate size files. The submitter ships
+		// only the ORIGINAL upload (no `_wp_attachment_metadata`, no `-WxH`
+		// variants), so unless we rebuild them here every request for a sized
+		// image — thumbnails, `medium`, theme-registered sizes, `srcset`,
+		// featured-image renders — 404s and the picture looks broken even
+		// though the original imported fine. Regenerate from the on-disk file
+		// (uploads.zip was extracted in step 3). A shipped metadata blob, if
+		// any, still wins. Non-image mimes yield harmless minimal metadata.
+		if ( ! empty( $att['metadata'] ) && is_array( $att['metadata'] ) ) {
+			update_post_meta( $id, '_wp_attachment_metadata', $att['metadata'] );
+		} elseif ( file_exists( $full_path ) ) {
+			if ( ! function_exists( 'wp_generate_attachment_metadata' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/image.php';
+			}
+			$metadata = wp_generate_attachment_metadata( $id, $full_path );
+			if ( is_array( $metadata ) && ! empty( $metadata ) ) {
+				wp_update_attachment_metadata( $id, $metadata );
+			}
+		}
+
+		return $id;
+	}
+
+	// ---------------------------------------------------------- Posts
+
+	private function upsert_post( array $post, array $ref_map, string $site_url, array &$warnings ): int {
+		$type = (string) ( $post['post_type'] ?? 'post' );
+
+		$content = $this->rewrite_refs_and_urls( (string) ( $post['post_content'] ?? '' ), $ref_map, $site_url, $warnings );
+		$excerpt = $this->rewrite_refs_and_urls( (string) ( $post['post_excerpt'] ?? '' ), $ref_map, $site_url, $warnings );
+
+		$post_parent = 0;
+		if ( ! empty( $post['post_parent_ref'] ) ) {
+			$post_parent = (int) ( $ref_map[ (string) $post['post_parent_ref'] ] ?? 0 );
+		}
+
+		$existing_id = $this->find_by_source_ref( (string) $post['ref'] );
+
+		$postarr = [
+			'post_type'    => $type,
+			'post_title'   => (string) ( $post['post_title'] ?? '' ),
+			'post_name'    => (string) ( $post['post_name'] ?? '' ),
+			'post_status'  => (string) ( $post['post_status'] ?? 'publish' ),
+			'post_content' => $content,
+			'post_excerpt' => $excerpt,
+			'menu_order'   => (int) ( $post['menu_order'] ?? 0 ),
+			'post_parent'  => $post_parent,
+		];
+		if ( ! empty( $post['post_date_gmt'] ) ) {
+			$postarr['post_date_gmt'] = (string) $post['post_date_gmt'];
+			$postarr['post_date']     = get_date_from_gmt( (string) $post['post_date_gmt'] );
+		}
+
+		if ( $existing_id > 0 ) {
+			$postarr['ID'] = $existing_id;
+			$id = wp_update_post( wp_slash( $postarr ), true );
+		} else {
+			$id = wp_insert_post( wp_slash( $postarr ), true );
+		}
+		if ( is_wp_error( $id ) || ! $id ) {
+			$warnings[] = 'Failed to insert post ' . (string) ( $post['ref'] ?? '?' ) . ': '
+				. ( is_wp_error( $id ) ? $id->get_error_message() : 'unknown' );
+			return 0;
+		}
+		$id = (int) $id;
+
+		foreach ( (array) ( $post['meta'] ?? [] ) as $m ) {
+			$key   = (string) ( $m['key']   ?? '' );
+			$value = $m['value'] ?? '';
+			if ( '' === $key ) {
+				continue;
+			}
+			$value = $this->rewrite_meta_value( $key, $value, $ref_map, $site_url, $warnings );
+			if ( null === $value ) {
+				continue;
+			}
+			update_post_meta( $id, $key, $value );
+		}
+		update_post_meta( $id, self::META_SOURCE_REF, (string) $post['ref'] );
+
+		foreach ( (array) ( $post['terms'] ?? [] ) as $term_ref_entry ) {
+			$ref     = (string) ( $term_ref_entry['ref'] ?? '' );
+			$term_id = (int) ( $ref_map[ $ref ] ?? 0 );
+			if ( $term_id <= 0 ) {
+				continue;
+			}
+			$term = get_term( $term_id );
+			if ( $term && ! is_wp_error( $term ) ) {
+				wp_set_object_terms( $id, [ $term_id ], $term->taxonomy, true );
+			}
+		}
+
+		return $id;
+	}
+
+	// ---------------------------------------------------------- Menus
+
+	private function apply_menu( array $menu, array $ref_map, array &$warnings, string $site_url = '' ): int {
+		$term_ref = (string) ( $menu['term_ref'] ?? '' );
+		$term_id  = (int) ( $ref_map[ $term_ref ] ?? 0 );
+		if ( $term_id <= 0 ) {
+			$warnings[] = "Menu skipped (term not found): $term_ref";
+			return 0;
+		}
+
+		// Wipe existing items before re-creating from the manifest —
+		// without this, every re-import accumulates duplicates because
+		// wp_update_nav_menu_item with id=0 always inserts fresh.
+		$existing = wp_get_nav_menu_items( $term_id, [ 'update_post_term_cache' => false ] );
+		if ( is_array( $existing ) ) {
+			foreach ( $existing as $existing_item ) {
+				wp_delete_post( (int) $existing_item->ID, true );
+			}
+		}
+
+		$applied  = 0;
+		$item_map = []; // source menu-item id => freshly created menu-item id.
+		foreach ( (array) ( $menu['items'] ?? [] ) as $item ) {
+			$type = (string) ( $item['type'] ?? 'post_type' );
+
+			$object_ref = (string) ( $item['object_ref'] ?? '' );
+			$object_id  = '' !== $object_ref ? (int) ( $ref_map[ $object_ref ] ?? 0 ) : 0;
+			// A custom-link item legitimately carries no object target.
+			if ( '' !== $object_ref && $object_id <= 0 && 'custom' !== $type ) {
+				$warnings[] = "Menu item skipped (target missing): $object_ref";
+				continue;
+			}
+
+			// Parent resolves WITHIN the menu: prefer the source-id map
+			// (submitter format walks items parent-before-child by menu_order),
+			// falling back to a global ref (legacy format).
+			$parent_id  = 0;
+			$parent_src = (int) ( $item['parent_src_id'] ?? 0 );
+			if ( $parent_src > 0 ) {
+				$parent_id = (int) ( $item_map[ $parent_src ] ?? 0 );
+			} elseif ( ! empty( $item['parent_ref'] ) ) {
+				$parent_id = (int) ( $ref_map[ (string) $item['parent_ref'] ] ?? 0 );
+			}
+
+			$url = (string) ( $item['url'] ?? '' );
+			if ( '' !== $url && '' !== $site_url ) {
+				$url = str_replace( '{{SITE_URL}}', $site_url, $url );
+			}
+
+			$new_id = wp_update_nav_menu_item( $term_id, 0, [
+				'menu-item-title'     => (string) ( $item['title'] ?? '' ),
+				'menu-item-type'      => $type,
+				'menu-item-object'    => (string) ( $item['object'] ?? '' ),
+				'menu-item-object-id' => $object_id,
+				'menu-item-parent-id' => $parent_id,
+				'menu-item-position'  => (int) ( $item['menu_order'] ?? 0 ),
+				'menu-item-url'       => $url,
+				'menu-item-classes'   => implode( ' ', (array) ( $item['classes'] ?? [] ) ),
+				'menu-item-target'    => (string) ( $item['target'] ?? '' ),
+				'menu-item-status'    => 'publish',
+			] );
+			if ( is_wp_error( $new_id ) || ! $new_id ) {
+				continue;
+			}
+			$src_id = (int) ( $item['src_id'] ?? 0 );
+			if ( $src_id > 0 ) {
+				$item_map[ $src_id ] = (int) $new_id;
+			}
+			$applied++;
+		}
+		return $applied;
+	}
+
+	// ---------------------------------------------------------- Rewrite
+
+	/**
+	 * Replace `{{ref:(post|term):N(:missing)?}}`, `{{SITE_URL}}`,
+	 * `wp-image-{source_id}` CSS classes, multisite uploads path prefix,
+	 * AND raw `"id":N` JSON block attrs that point at attachments.
+	 */
+	private function rewrite_refs_and_urls( string $value, array $ref_map, string $site_url, array &$warnings ): string {
+		if ( '' === $value ) {
+			return $value;
+		}
+
+		// (a) refs
+		$value = (string) preg_replace_callback(
+			'/\{\{ref:(post|term):(\d+)(:missing)?\}\}/',
+			static function ( array $m ) use ( $ref_map, &$warnings ): string {
+				$kind    = $m[1];
+				$num     = (int) $m[2];
+				$missing = isset( $m[3] ) && '' !== $m[3];
+				$ref     = "{$kind}:{$num}";
+
+				if ( $missing ) {
+					$warnings[] = "Reference marked :missing in source: $ref";
+					return $m[0];
+				}
+				$id = (int) ( $ref_map[ $ref ] ?? 0 );
+				return (string) $id;
+			},
+			$value
+		);
+
+		// (b) site URL placeholder — flip {{SITE_URL}} to the live home URL.
+		$value = str_replace( '{{SITE_URL}}', $site_url, $value );
+
+		// (b.1) Multisite uploads-path strip.
+		//
+		// When the source site was a multisite CHILD, attachment URLs in
+		// block markup carry the `wp-content/uploads/sites/N/` prefix
+		// (`wp_get_attachment_url` baked it in during export). The
+		// uploads.zip we unpacked is rooted at the destination's plain
+		// uploads basedir — files land at `wp-content/uploads/2018/03/…`
+		// WITHOUT the `sites/N/` segment. Without this strip, every
+		// image in the post points at a 404.
+		//
+		// We only touch URLs whose host already matches our home (anchored
+		// via the just-replaced `{{SITE_URL}}`), so external links never
+		// get rewritten by accident.
+		$home_no_slash = untrailingslashit( $site_url );
+		if ( '' !== $home_no_slash ) {
+			$value = (string) preg_replace(
+				'#(' . preg_quote( $home_no_slash, '#' ) . '/wp-content/uploads/)sites/\d+/#',
+				'$1',
+				$value
+			);
+		}
+
+		// Build attachment-only ID pair map for (c) + (d). Plain posts in
+		// `ref_map` are excluded — block JSON `"id":N` attrs that aren't
+		// attachment refs (e.g. an Image block's `"id":42` IS an
+		// attachment; a navigation block's `"id":7` is the menu's post id)
+		// shouldn't get rewritten by the broad regex in (d), so we gate
+		// strictly on attachment status.
+		$attachment_pairs = array();
+		foreach ( $ref_map as $ref => $new_id ) {
+			if ( 0 !== strpos( $ref, 'post:' ) ) {
+				continue;
+			}
+			$old_id = (int) substr( $ref, 5 );
+			$new_id = (int) $new_id;
+			if ( $old_id <= 0 || $new_id <= 0 || $old_id === $new_id ) {
+				continue;
+			}
+			$local = get_post( $new_id );
+			if ( ! $local || 'attachment' !== $local->post_type ) {
+				continue;
+			}
+			$attachment_pairs[ $old_id ] = $new_id;
+		}
+
+		// (c) wp-image-{source_id} → wp-image-{new_id}
+		foreach ( $attachment_pairs as $old_id => $new_id ) {
+			$value = (string) preg_replace(
+				'/\bwp-image-' . $old_id . '\b/',
+				'wp-image-' . $new_id,
+				$value
+			);
+		}
+
+		// (d) Block JSON `"id":N` → `"id":<local>` for attachment refs.
+		//
+		// Gutenberg image / cover / video / gallery (single) / file blocks
+		// carry the attachment ID inside the block-comment JSON attribute
+		// block — the submitter doesn't rewrite this to a `{{ref:post:N}}`
+		// placeholder, so we have to walk raw integers here.
+		//
+		// Restricting to `$attachment_pairs` (built above) makes this
+		// strict: a numeric `"id"` that doesn't belong to an attachment
+		// passes through unchanged. Blocks that store `"ids":[…]` for
+		// galleries are handled separately just below.
+		if ( ! empty( $attachment_pairs ) ) {
+			$value = (string) preg_replace_callback(
+				'/"id"\s*:\s*(\d+)/',
+				static function ( array $m ) use ( $attachment_pairs ): string {
+					$src = (int) $m[1];
+					if ( isset( $attachment_pairs[ $src ] ) ) {
+						return '"id":' . $attachment_pairs[ $src ];
+					}
+					return $m[0];
+				},
+				$value
+			);
+
+			// `"ids":[1,2,3]` — gallery block list of attachment IDs.
+			$value = (string) preg_replace_callback(
+				'/"ids"\s*:\s*\[([^\]]*)\]/',
+				static function ( array $m ) use ( $attachment_pairs ): string {
+					$rewritten = preg_replace_callback(
+						'/\d+/',
+						static function ( array $n ) use ( $attachment_pairs ): string {
+							$src = (int) $n[0];
+							return isset( $attachment_pairs[ $src ] )
+								? (string) $attachment_pairs[ $src ]
+								: $n[0];
+						},
+						$m[1]
+					);
+					return '"ids":[' . $rewritten . ']';
+				},
+				$value
+			);
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Rewrite a single meta value. Returns null to signal "drop this entry"
+	 * (e.g. `:missing` `_thumbnail_id` shouldn't be persisted).
+	 *
+	 * @param mixed $value
+	 * @return mixed|null
+	 */
+	private function rewrite_meta_value( string $key, $value, array $ref_map, string $site_url, array &$warnings ) {
+		if ( in_array( $key, self::META_POST_ID_KEYS, true ) ) {
+			$str = (string) $value;
+			if ( preg_match( '/^\{\{ref:post:(\d+)(:missing)?\}\}$/', $str, $m ) ) {
+				if ( isset( $m[2] ) && '' !== $m[2] ) {
+					return null;
+				}
+				$id = (int) ( $ref_map[ "post:{$m[1]}" ] ?? 0 );
+				return $id > 0 ? $id : null;
+			}
+			return $value;
+		}
+
+		if ( is_string( $value ) ) {
+			return $this->rewrite_refs_and_urls( $value, $ref_map, $site_url, $warnings );
+		}
+
+		if ( is_array( $value ) ) {
+			array_walk_recursive( $value, function ( &$v ) use ( $ref_map, $site_url, &$warnings ): void {
+				if ( is_string( $v ) ) {
+					$v = $this->rewrite_refs_and_urls( $v, $ref_map, $site_url, $warnings );
+				}
+			} );
+		}
+		return $value;
+	}
+
+	// ---------------------------------------------------------- Idempotency
+
+	/**
+	 * @param array<int,string> $refs
+	 */
+	private function wipe_existing_by_refs( array $refs ): void {
+		if ( empty( $refs ) ) {
+			return;
+		}
+		$ids = get_posts( [
+			'post_type'      => 'any',
+			'post_status'    => 'any',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Looking up an already-imported post by its source-ref meta is required to remap IDs; the query is bounded (no_found_rows, ids only).
+			'meta_query'     => [
+				[
+					'key'     => self::META_SOURCE_REF,
+					'value'   => array_values( array_unique( $refs ) ),
+					'compare' => 'IN',
+				],
+			],
+		] );
+		if ( empty( $ids ) ) {
+			return;
+		}
+
+		// Suppress on-disk file deletion — Uploads_Extractor just wrote
+		// fresh copies and the about-to-be-inserted attachments will
+		// point at them. Filter returns false → wp_delete_file no-ops.
+		$keep_files = static function () { return false; };
+		add_filter( 'wp_delete_file', $keep_files );
+		try {
+			foreach ( $ids as $id ) {
+				wp_delete_post( (int) $id, true );
+			}
+		} finally {
+			remove_filter( 'wp_delete_file', $keep_files );
+		}
+	}
+
+	private function find_by_source_ref( string $ref ): int {
+		$ids = get_posts( [
+			'post_type'      => 'any',
+			'post_status'    => 'any',
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'no_found_rows'  => true,
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Looking up an already-imported post by its source-ref meta is required to remap IDs; the query is bounded (no_found_rows, ids only).
+			'meta_query'     => [
+				[ 'key' => self::META_SOURCE_REF, 'value' => $ref ],
+			],
+		] );
+		return $ids ? (int) $ids[0] : 0;
+	}
+}

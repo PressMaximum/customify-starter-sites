@@ -1,0 +1,1013 @@
+/**
+ * Generic-track admin styles (mockup3 — custstsi-* namespace).
+ *
+ * Color scheme inherits the WP admin's primary accent via
+ * `--wp-admin-theme-color` so the importer matches whichever admin
+ * scheme the user picked (Blue / Light / Midnight / etc.). Buttons,
+ * focus rings, tile selection state, progress bar fill and the step
+ * indicator all derive from that single variable — no hardcoded
+ * #2271b1 anywhere in this file. The legacy `style.css` at the
+ * plugin root still loads but its selectors target `.theme-*` /
+ * `.custstsi-app-*` markup the new tree doesn't emit.
+ *
+ * Layout reference: docs/ux-research/mockup3.html.
+ */
+
+// Inherit WP admin scheme. The two fallbacks cover (a) the rare
+// admin pre-3.7 case + (b) Site Editor pages that load this style
+// without the wp-admin :root vars (unlikely but cheap insurance).
+$accent: var(--wp-admin-theme-color, #2271b1);
+$accent-darker: var(--wp-admin-theme-color-darker-10, #135e96);
+$accent-rgb: var(--wp-admin-theme-color--rgb, 34, 113, 177);
+:root {
+  --custstsi-spacing: 20px;
+  --custstsi-spacing-half: calc(var(--custstsi-spacing) / 2);
+}
+
+// ─────────────────────────────────────────────────────────────────── Page
+
+.custstsi-grid-page {
+  margin: 0 auto;
+}
+
+.custstsi-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  h1.wp-heading-inline {
+    font-size: 23px;
+    font-weight: 400;
+    color: #1d2327;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.custstsi-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: nowrap;
+  margin-bottom: var(--custstsi-spacing);
+}
+
+.custstsi-categories {
+  display: flex;
+  align-items: center;
+
+  // DropdownMenu toggle — show as a low-chrome button so it sits
+  // quietly alongside the SearchControl in the topbar.
+  &__toggle.components-button {
+    color: #1d2327;
+    font-weight: 500;
+
+    &:hover {
+      color: var(--pmdk-color-accent, var(--wp-admin-theme-color, #2271b1));
+    }
+  }
+}
+
+.custstsi-search {
+  flex-shrink: 0;
+  width: 260px;
+  max-width: 100%;
+
+  // @wordpress/components SearchControl ships its own icon + styling.
+  // Cap the inner control to the wrapper width so the topbar layout
+  // stays predictable.
+  .components-search-control {
+    width: 100%;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────── Grid
+
+.custstsi-loading {
+  text-align: center;
+  padding: 48px 0;
+  color: #50575e;
+
+  // WP `<Spinner>` ships ~18px by default; scale to 40 so it reads
+  // on the empty-grid loading state, matching the card-overlay
+  // spinner size for visual consistency.
+  .components-spinner {
+    width: 40px;
+    height: 40px;
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  p {
+    margin-top: 12px;
+  }
+}
+
+.custstsi-empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.custstsi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--custstsi-spacing);
+
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (max-width: 782px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Embedded inside the Customify dashboard the available content width
+// is narrower than the standalone page (dashboard chrome eats space),
+// so cap the grid at 3 desktop columns and drop to 2 / 1 sooner.
+.custstsi-grid-page.is-embedded .custstsi-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.custstsi-load-more {
+  text-align: center;
+  margin: 24px 0 0;
+}
+
+.custstsi-card {
+  position: relative;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  &:focus,
+  &.is-focus {
+    border-color: $accent;
+    box-shadow: 0 0 0 var(--wp-admin-border-width-focus, 1.5px) $accent;
+    outline: 2px solid transparent;
+  }
+
+  &__thumb {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    background: linear-gradient(135deg, #c3c4c7, #f0f0f1);
+    color: rgba(255, 255, 255, 0.85);
+    font-family: Georgia, serif;
+    font-size: 28px;
+    letter-spacing: 0.04em;
+    transition: opacity 0.2s ease-in-out;
+    -webkit-backface-visibility: hidden;
+
+    // Fixed 4:5 portrait aspect ratio. `padding-top` = height ÷ width
+    // = 5 ÷ 4 = 125%. The intrinsic-ratio pseudo-element trick works
+    // back to Safari 9 and avoids the layout shift `aspect-ratio` would
+    // cause on browsers that compute it after the first paint.
+    &::before {
+      content: "";
+      display: block;
+      padding-top: 125%;
+    }
+
+    // Image keeps its natural aspect ratio (width:100% + height:auto)
+    // pinned to the top edge of the 4:5 thumbnail frame. Parent's
+    // `overflow: hidden` clips whatever drops below the frame, so tall
+    // screenshots show the top portion only — useful for full-page
+    // demo screenshots where the hero is what matters.
+    img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: opacity 0.2s ease-in-out;
+    }
+
+    &:focus {
+      outline: 0;
+      box-shadow: none;
+    }
+  }
+
+  &:hover .custstsi-card__thumb,
+  &.is-focus .custstsi-card__thumb {
+    background: #fff;
+  }
+
+  &:hover .custstsi-card__thumb img,
+  &.is-focus .custstsi-card__thumb img {
+    opacity: 0.8;
+  }
+
+  &__pro-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--wp-admin-theme-color, #2271b1);
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  // Loading overlay shown while the options.json prefetch is in flight.
+  // Sits above the thumb / pro-badge / actions so clicks reach nothing
+  // (the parent disables the open-wizard handler too, but the overlay
+  // gives the user a visual "we got it, hold on" signal).
+  //
+  // WP `<Spinner>` ships ~18px by default, which gets lost on a
+  // 3:2-aspect card. Scale the rendered SVG up so it reads at a
+  // glance even on the larger thumbnail surface.
+  &__loading {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.248);
+    cursor: progress;
+
+    .components-spinner {
+      width: 40px;
+      height: 40px;
+
+      svg {
+        width: 100%;
+        height: 100%;
+      }
+    }
+  }
+  &.is-loading {
+    cursor: progress;
+
+    .custstsi-card__thumb,
+    .custstsi-card__actions {
+      cursor: progress;
+    }
+  }
+
+  &__body {
+    position: relative;
+    margin: 0;
+    padding: 16px 15px;
+    height: 18px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    background: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 18px;
+  }
+
+  &__title {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: #1e1e1e;
+  }
+
+  &__actions {
+    opacity: 0;
+    transition: opacity 0.1s ease-in-out;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    padding: 9px 12px;
+    background: rgba(246, 247, 247, 0.7);
+    border-left: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.1);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+
+    // Mirror `.theme-browser .theme .theme-actions .button` from
+    // wp-admin/css/themes.css so primary + secondary buttons here
+    // look identical to WP's themes.php card actions.
+    .components-button {
+      min-height: 32px;
+      line-height: 2.30769231; // 30px line-height for 32px min-height
+      padding: 0 12px;
+      margin: 0;
+
+      &.is-secondary {
+        background: #fff;
+
+        &:hover {
+          background: #f0f0f0;
+        }
+        &:focus {
+          background: #fff;
+        }
+      }
+    }
+  }
+
+  &:hover .custstsi-card__actions,
+  &.is-focus .custstsi-card__actions,
+  &:focus-within .custstsi-card__actions {
+    opacity: 1;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────── Wizard
+
+body.custstsi-wizard-open {
+  overflow: hidden;
+}
+
+.custstsi-wizard {
+  position: fixed;
+  inset: 0;
+  z-index: 100000; // sits above WP admin bar (99999)
+  background: #ececec;
+  display: flex;
+  flex-direction: column;
+}
+
+.custstsi-wizard__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  padding: var(--custstsi-spacing-half);
+}
+
+// ── Sidebar (left 320px)
+
+.custstsi-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  // padding-left: var(--custstsi-spacing-half);
+
+  &__header {
+    flex-shrink: 0;
+    padding: var(--custstsi-spacing-half) var(--custstsi-spacing-half) 0
+      var(--custstsi-spacing-half);
+  }
+  &__divider {
+    border-bottom: 3px double #c3c4c7;
+    margin-top: var(--custstsi-spacing);
+    display: block;
+    width: 100%;
+  }
+
+  &__title {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    min-width: 0;
+    line-height: 1.4;
+
+    strong {
+      display: block;
+      font-size: 20px;
+      font-weight: 600;
+      color: #1e1e1e;
+      margin-top: 6px;
+      letter-spacing: -0.01em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--custstsi-spacing) var(--custstsi-spacing-half);
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: #d4d6d9;
+      border-radius: 999px;
+      &:hover {
+        background: #a7a9aa;
+      }
+    }
+  }
+
+  &__footer {
+    flex-shrink: 0;
+    padding: calc(var(--custstsi-spacing) / 2);
+    background: transparent;
+  }
+}
+
+// ── Preview pane (right, fills remaining width)
+
+.custstsi-preview {
+  flex: 1;
+  min-width: 0;
+  padding: var(--custstsi-spacing);
+  display: flex;
+  position: relative;
+
+  &__iframe {
+    width: 100%;
+    height: 100%;
+    border: 2px solid #fff;
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #c3c4c7;
+  }
+
+  &__fallback {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f6f7f7;
+    color: #9ca3af;
+    font-size: 13px;
+    border-radius: 14px;
+  }
+}
+
+// ── Step typography
+
+.custstsi-step__heading {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e1e1e;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.custstsi-step__lede {
+  font-size: 13px;
+  color: #50575e;
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
+.custstsi-step__hint {
+  color: #6b7280;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.custstsi-error {
+  color: #b32d2e;
+  font-size: 13px;
+  padding: 8px 10px;
+  background: #fcf0f1;
+  border: 1px solid #f1d1d1;
+  border-radius: 4px;
+  margin: 12px 0;
+}
+
+.custstsi-warning {
+  background: #fcf9e8;
+  border: 1px solid #f0e2a1;
+  color: #8a6c0a;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+// ── Sub-sections inside the merged Style / Content steps
+
+.custstsi-style-section {
+  margin-bottom: 28px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.custstsi-style-subheading {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 0 0 14px;
+}
+
+// ── Tile grid (palette + typography)
+
+.custstsi-tile-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.custstsi-tile {
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  font-family: inherit;
+  min-width: 0;
+  color: #1e1e1e;
+
+  &:hover {
+    border-color: #b4b9be;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+  }
+  &.is-selected {
+    border-color: $accent;
+    box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #3858e9);
+  }
+
+  &--skip {
+    background: #fafafa;
+  }
+
+  &__swatches {
+    display: flex;
+    gap: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 26px;
+    width: 52px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+  &__swatch {
+    flex: 1;
+  }
+  &__label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 500;
+    color: #1e1e1e;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__skip-dash {
+    width: 52px;
+    height: 26px;
+    flex-shrink: 0;
+    border: 1.5px dashed #c3c4c7;
+    border-radius: 4px;
+    position: relative;
+
+    &::after {
+      content: "—";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8c8f94;
+      font-size: 14px;
+    }
+  }
+  &--font &__font-heading {
+    font-size: 22px;
+    line-height: 1;
+    color: #1e1e1e;
+    letter-spacing: -0.02em;
+    width: 52px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+}
+
+// ── Plugin / option toggle cards (used by steps 1 + 2)
+
+.custstsi-plugins {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.custstsi-plugins-pro-notice {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  background: #fcf3e6;
+  border-left: 3px solid #d98c17;
+  color: #7a4d00;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.custstsi-plugins-section {
+  &__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e1e1e;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  &__bulk {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: $accent;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.custstsi-plugins-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.custstsi-plugin {
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  font-family: inherit;
+  color: #1e1e1e;
+  min-width: 0;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
+
+  &:hover:not(.is-installed):not(.is-required) {
+    border-color: #b4b9be;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  }
+  &.is-checked {
+    border-color: $accent;
+    box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #3858e9);
+  }
+  &.is-required {
+    cursor: default;
+    // border-color: #cfd8e3;
+    // background: #f7faff;
+  }
+  &.is-installed {
+    background: #f6f7f7;
+    cursor: default;
+    opacity: 0.7;
+  }
+
+  &__head {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 20px;
+  }
+
+  &__check {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #c3c4c7;
+    border-radius: 4px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
+    line-height: 1;
+    box-sizing: border-box;
+  }
+  &.is-checked &__check {
+    background: $accent;
+    border-color: $accent;
+    color: #fff;
+
+    &::after {
+      content: "✓";
+    }
+  }
+  &.is-required.is-checked &__check {
+    background: #c3c4c7;
+    border-color: #c3c4c7;
+    color: #fff;
+  }
+
+  &__name {
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 20px;
+    color: #1e1e1e;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__source {
+    font-size: 9px;
+    font-weight: 700;
+    color: #757575;
+    background: #f0f0f1;
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  &__required-note {
+    // Match the description row's typography + spacing (the parent's
+    // flex `gap` provides the top spacing, same as __desc).
+    font-size: 11px;
+    line-height: 1.35;
+    font-weight: 600;
+    color: #b26a00;
+  }
+
+
+  &__desc {
+    font-size: 11px;
+    color: #6b7280;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// ── Step action bar (footer)
+
+.custstsi-step-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &__spacer {
+    flex: 1;
+  }
+}
+
+// ── Install screen
+
+.custstsi-install {
+  display: flex;
+  flex-direction: column;
+  gap: var(--custstsi-spacing);
+
+  &__overall {
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  &__pct {
+    font-size: 36px;
+    font-weight: 600;
+    color: #1e1e1e;
+    line-height: 1.1;
+  }
+
+  &__label {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+
+  &__bar {
+    width: 100%;
+    height: 6px;
+    background: #f0f0f1;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 12px 0 0;
+  }
+
+  &__bar-fill {
+    height: 100%;
+    background: $accent;
+    transition: width 0.4s ease;
+  }
+
+  &__phases {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__phase {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid #e6e6e6;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #1e1e1e;
+
+    &.is-pending {
+      opacity: 0.55;
+    }
+    &.is-running .custstsi-install__phase-icon {
+      border-color: $accent;
+      border-top-color: transparent;
+      animation: custstsi-spin 0.8s linear infinite;
+    }
+    &.is-done .custstsi-install__phase-icon {
+      background: #00a32a;
+      border-color: #00a32a;
+      color: #fff;
+
+      &::after {
+        content: "✓";
+      }
+    }
+    &.is-failed .custstsi-install__phase-icon {
+      background: #d63638;
+      border-color: #d63638;
+      color: #fff;
+
+      &::after {
+        content: "!";
+        font-weight: 700;
+      }
+    }
+  }
+
+  &__phase-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #c3c4c7;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #8c8f94;
+    background: #fff;
+  }
+
+  &__phase-label {
+    font-weight: 500;
+    color: #1e1e1e;
+  }
+}
+
+@keyframes custstsi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.custstsi-status {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+
+  &.is-success {
+    background: #ecf6e8;
+    color: #00733e;
+    border: 1px solid #b8dbb8;
+  }
+  &.is-error {
+    background: #fcf0f1;
+    color: #b32d2e;
+    border: 1px solid #f1d1d1;
+  }
+  &.is-warning {
+    background: #fcf9e8;
+    color: #8a6c0a;
+    border: 1px solid #f0e2a1;
+  }
+}
+
+.custstsi-warnings {
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: #fcf9e8;
+  border: 1px solid #f0e2a1;
+  border-radius: 4px;
+  font-size: 12px;
+
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+  }
+  ul {
+    margin: 8px 0 0 18px;
+  }
+}
+
+// ── Done screen
+
+.custstsi-done {
+  text-align: center;
+  padding: 16px 0;
+
+  &__check {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #ecf6e8;
+    color: #00a32a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin-bottom: 16px;
+  }
+
+  &__heading {
+    font-size: 22px;
+    margin-bottom: 6px;
+    color: #1e1e1e;
+  }
+
+  &__lede {
+    color: #50575e;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch; // stacked WP buttons fill the column width
+    gap: 8px;
+    margin-top: 8px;
+
+    .components-button {
+      justify-content: center;
+    }
+  }
+}
