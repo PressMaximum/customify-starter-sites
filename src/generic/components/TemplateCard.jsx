@@ -1,12 +1,9 @@
 /**
- * One template tile in the grid — 4:5 thumb, title row with Preview +
- * Import buttons. Pro badge pins to the top-right of the thumb when
- * the template is gated. Clicking the thumb (or Import) opens the
- * wizard; Preview routes to the template's demo URL in a new tab.
- *
- * Buttons use `@wordpress/components` `<Button>` so they inherit the
- * admin scheme and accessibility behavior of every other WP admin
- * surface — no custom button styling on this component.
+ * One template tile in the grid — 4:5 thumb, then a content column with
+ * title + description and a footer pinned to the card bottom. The footer
+ * holds an Import button (primary) followed by an icon-only Preview that
+ * opens the demo site in a new tab. Clicking the thumb (or Import) opens
+ * the import wizard. Layout mirrors the public template library card.
  */
 
 import { Button, Spinner } from '@wordpress/components';
@@ -38,6 +35,17 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 		? `${ rawThumb }${ rawThumb.includes( '?' ) ? '&' : '?' }v=${ encodeURIComponent( template.version ) }`
 		: rawThumb;
 	const name    = template.title || template.name || `#${ template.id }`;
+	// Prose description shown under the title when the catalog provides one.
+	// (`keywords`/`excerpt` are tag arrays, never a description.)
+	const description = template.description || template.content || template.subtitle || '';
+	// License badge (matches the public library's "Press Studio" tag).
+	const license = template.license || '';
+	const licenseLabel =
+		license === 'pressstudio'
+			? __( 'Studio', 'customify-starter-sites' )
+			: license === 'free'
+				? __( 'Free', 'customify-starter-sites' )
+				: '';
 	// Studio's canonical demo URL lives at `preview_url` (verified from
 	// `GET /studio/templates`). `demo_url` / `frame_url` /
 	// `preview_route` are kept as fallbacks for legacy Studio schemas
@@ -95,16 +103,39 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 				) }
 			</div>
 
-			<div className="custstsi-card__body">
-				<div className="custstsi-card__title" title={ name }>{ name }</div>
-				<div className="custstsi-card__actions">
-					<Button variant="secondary" onClick={ openDemo }>
-						{ __( 'Preview', 'customify-starter-sites' ) }
-					</Button>
-					<Button variant="primary" onClick={ openWizard }>
+			<div className="custstsi-card__content">
+				<div className="custstsi-card__body">
+					<h3 className="custstsi-card__title" title={ name }>{ name }</h3>
+					{ description && (
+						<p className="custstsi-card__desc">{ description }</p>
+					) }
+				</div>
+				<footer className="custstsi-card__footer">
+					<Button
+						variant="primary"
+						className="custstsi-card__import"
+						onClick={ openWizard }
+					>
 						{ __( 'Import', 'customify-starter-sites' ) }
 					</Button>
-				</div>
+					{ licenseLabel && (
+						<span className={ `custstsi-card__license is-${ license }` }>
+							{ licenseLabel }
+						</span>
+					) }
+					<button
+						type="button"
+						className="custstsi-card__preview"
+						onClick={ openDemo }
+						aria-label={ __( 'Preview site', 'customify-starter-sites' ) }
+						title={ __( 'Preview site', 'customify-starter-sites' ) }
+					>
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" aria-hidden="true" focusable="false">
+							<path d="M7 7h10v10" />
+							<path d="M7 17 17 7" />
+						</svg>
+					</button>
+				</footer>
 			</div>
 		</article>
 	);
