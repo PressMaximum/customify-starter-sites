@@ -37,7 +37,6 @@ import { jobs } from '../api';
 import { useJob } from '../hooks/useJob';
 import { PALETTES as FALLBACK_PALETTES, FONTS as FALLBACK_FONTS } from '../placeholders';
 import { getStyleBuilder } from '../style-builders';
-import { isProBlocked, missingProSlugs } from '../pro';
 
 /**
  * Host-provided palettes win when present (Customify adapter publishes
@@ -536,12 +535,9 @@ export function PreviewPanel({ template, onClose }) {
 	const requiredPlugins = plugins.filter((p) => p.required);
 	const recommendedPlugins = plugins.filter((p) => !p.required);
 
-	// A Pro template can only be imported once its Pro plugins are
-	// installed on the site. The gate lives here in the wizard's Plugins
-	// step (not on the grid card): it shows a notice and blocks the Next
-	// button until the Pro plugins are present.
-	const proBlocked = isProBlocked(template);
-	const missingPro = missingProSlugs(template);
+	// Missing required plugins never block the import — installed ones are
+	// activated automatically, missing ones only surface a warning in the
+	// Plugins step. So there's no Pro gate here any more.
 
 	const isPluginChecked = (p) => {
 		// Already active → nothing to do, but show it as checked/done.
@@ -789,8 +785,6 @@ export function PreviewPanel({ template, onClose }) {
 										}
 										onBulkToggle={bulkToggleOptional}
 										loadingDetail={false}
-										proBlocked={proBlocked}
-										missingPro={missingPro}
 									/>
 								)}
 								{step === 2 && (
@@ -844,13 +838,7 @@ export function PreviewPanel({ template, onClose }) {
 									variant="primary"
 									onClick={next}
 									isBusy={starting}
-									disabled={starting || (step === 1 && proBlocked)}
-									aria-disabled={(step === 1 && proBlocked) || undefined}
-									title={
-										step === 1 && proBlocked
-											? __('Install Customify Pro & Blocksify Pro to continue.', 'customify-starter-sites')
-											: undefined
-									}
+									disabled={starting}
 								>
 									{isLast
 										? (starting
@@ -1010,7 +998,7 @@ function StyleStep({ palettes, palette, setPalette, typography, setTypography, f
 
 // ── Step 1 ──────────────────────────────────────────────────────────────────
 
-function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, onBulkToggle, loadingDetail, proBlocked = false, missingPro = [] }) {
+function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, onBulkToggle, loadingDetail }) {
 	const renderCard = (p) => {
 		const classes = ['custstsi-plugin'];
 		if (p.installed) classes.push('is-installed');
@@ -1095,14 +1083,21 @@ function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, on
 				{__('Required & recommended plugins', 'customify-starter-sites')}
 			</h3>
 			<p className="custstsi-step__lede">
-				{__('Required plugins are needed for the demo to work and will be activated during import. You can uncheck any recommended one you don’t want.', 'customify-starter-sites')}
+				{__('Required plugins already installed are activated automatically during import. Any that aren’t installed won’t block the import — you’ll just see a warning. You can uncheck any recommended one you don’t want.', 'customify-starter-sites')}
 			</p>
 
-			{proBlocked && (
-				<div className="custstsi-plugins-pro-notice" role="alert">
-					{__('This template requires Customify Pro & Blocksify Pro. Install them to continue.', 'customify-starter-sites')}
-				</div>
-			)}
+			{(() => {
+				const missing = required.filter((p) => !p.installed);
+				return missing.length > 0 ? (
+					<div className="custstsi-plugins-pro-notice" role="status">
+						{sprintf(
+							/* translators: %s: comma-separated plugin names */
+							__('Not installed yet: %s. The import will still run; install these later for full functionality.', 'customify-starter-sites'),
+							missing.map((p) => p.name).join(', ')
+						)}
+					</div>
+				) : null;
+			})()}
 
 			{loadingDetail ? (
 				<div className="custstsi-loading"><Spinner /></div>

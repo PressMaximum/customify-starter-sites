@@ -168,37 +168,28 @@ class Importer_Runner {
 				count( $plugin_result['activated'] )
 			) );
 
-			// Hard gate — any `required: true` plugin that didn't end
-			// up active is fatal. Importing content for a missing
-			// plugin's CPT would silently drop posts (Content_Importer
-			// guards on post_type_exists with just a warning) and
-			// options/widgets/theme_mods scoped to that plugin would
-			// never take effect, leaving the site visibly broken. A
-			// clean abort is better than a half-imported template.
-			//
-			// Filterable so power users can downgrade to a warning
-			// (e.g. a CI run where the user knows they'll install the
-			// plugin manually right after).
-			$blocking = apply_filters(
+			// Missing plugins NEVER block the import. Installed ones were just
+			// activated; any that couldn't be installed (premium/third-party not
+			// on wordpress.org, e.g. Blocksify Pro on a site that doesn't have it)
+			// only produce a warning so the admin knows why some blocks/options may
+			// not render — the import still runs to completion. Filterable list is
+			// kept for back-compat but is only surfaced as warnings now.
+			$missing = apply_filters(
 				'custstsi_required_plugin_block',
 				$plugin_result['required_missing'],
 				$plugin_result,
 				$job_id
 			);
-			if ( ! empty( $blocking ) ) {
-				$lines = [];
-				foreach ( $blocking as $miss ) {
-					$lines[] = sprintf(
-						'%s (%s, source: %s, reason: %s)',
-						$miss['name']   ?? $miss['slug'],
+			foreach ( (array) $missing as $miss ) {
+				$this->jobs->warn(
+					$job_id,
+					sprintf(
+						/* translators: 1: plugin name, 2: slug, 3: source */
+						__( 'Plugin not installed: %1$s (%2$s, source: %3$s). Import continues; features that need it may not display until you install it.', 'customify-starter-sites' ),
+						$miss['name']   ?? ( $miss['slug'] ?? '?' ),
 						$miss['slug']   ?? '?',
-						$miss['source'] ?? 'unknown',
-						$miss['reason'] ?? 'missing'
-					);
-				}
-				throw new \RuntimeException(
-					'Required plugins not installed — aborting before content import: '
-					. implode( '; ', $lines )
+						$miss['source'] ?? 'unknown'
+					)
 				);
 			}
 

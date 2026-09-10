@@ -12,8 +12,6 @@
 import { Button, Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 
-import { isProTemplate } from '../pro';
-
 export function TemplateCard( { template, onSelect, loading = false } ) {
 	// Studio's preview_image is a nested attachment-shape (see
 	// `docs/studio/rest-api.md` §preview_image): full / medium / thumb
@@ -40,11 +38,6 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 		? `${ rawThumb }${ rawThumb.includes( '?' ) ? '&' : '?' }v=${ encodeURIComponent( template.version ) }`
 		: rawThumb;
 	const name    = template.title || template.name || `#${ template.id }`;
-	// A template is Pro when its plugins[] reference a Pro slug
-	// (customify-pro / blocksify-pro). The Pro badge flags these; the
-	// "you need Pro installed" gate lives in the wizard's Plugins step,
-	// not on the card — the card always opens the wizard.
-	const isPro = isProTemplate( template );
 	// Studio's canonical demo URL lives at `preview_url` (verified from
 	// `GET /studio/templates`). `demo_url` / `frame_url` /
 	// `preview_route` are kept as fallbacks for legacy Studio schemas
@@ -97,9 +90,6 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 				onKeyDown={ ( e ) => { if ( e.key === 'Enter' ) handleThumbClick( e ); } }
 				aria-label={ name }
 			>
-				{ isPro && (
-					<span className="custstsi-card__pro-badge">{ __( 'Pro', 'customify-starter-sites' ) }</span>
-				) }
 				{ thumb && (
 					<img src={ thumb } alt="" loading="lazy" />
 				) }
