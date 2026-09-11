@@ -35,6 +35,26 @@ class Remote_Client {
 	}
 
 	/**
+	 * Auth headers for a request: the read API key when one is configured.
+	 *
+	 * The public catalog (`pm-templates/v1/public/*`) needs no auth, so this is
+	 * usually empty. Premium ("Press Studio") templates are gated on the client
+	 * side instead — {@see Job_Controller::pro_gate_error()} blocks the import
+	 * up front when no Customify Pro license key is present — so no per-request
+	 * license header is sent here.
+	 *
+	 * @return array<string,string>
+	 */
+	private function auth_headers(): array {
+		$headers = [];
+		$key = $this->options->studio_key();
+		if ( '' !== $key ) {
+			$headers[ self::HEADER ] = $key;
+		}
+		return $headers;
+	}
+
+	/**
 	 * GET a studio-shaped resource. Internally this talks to the PM Templates
 	 * **public catalog** (`pm-templates/v1/public/*`, no auth) and normalizes
 	 * every response back into the legacy Studio response shape the proxy,
@@ -245,11 +265,7 @@ class Remote_Client {
 			// (e.g. plugin-served URL that isn't an attachment).
 		}
 
-		$headers = [];
-		$key     = $this->options->studio_key();
-		if ( '' !== $key ) {
-			$headers[ self::HEADER ] = $key;
-		}
+		$headers = $this->auth_headers();
 		$response = wp_remote_get(
 			$url,
 			[
@@ -311,11 +327,7 @@ class Remote_Client {
 		// an empty `X-PMBD-Api-Key` would make the Studio reject the
 		// request as a malformed authenticated call on scope-gated
 		// routes, instead of falling through to the public-read path.
-		$headers = [];
-		$key     = $this->options->studio_key();
-		if ( '' !== $key ) {
-			$headers[ self::HEADER ] = $key;
-		}
+		$headers = $this->auth_headers();
 
 		$response = wp_remote_request( $url, [
 			'method'  => $method,

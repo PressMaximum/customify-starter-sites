@@ -134,6 +134,68 @@ class Options_Store {
 		return '' !== $this->studio_url() && '' !== $this->studio_key();
 	}
 
+	/**
+	 * wp_options rows that the PressMaximum plugins' EDD Software Licensing
+	 * writes their license data into, each an array shaped
+	 * `[ 'license' => '<key>', 'data' => [...], 'error' => false ]`:
+	 *
+	 *   - customify_pro_license_data  — Customify Pro's updater
+	 *   - blocksify_pro_license_data  — Blocksify Pro's updater
+	 *
+	 * A premium ("Press Studio") template can be unlocked by whichever of these
+	 * keys validates for the template's product, so the gate tries them all.
+	 */
+	public const LICENSE_OPTION_KEYS = [
+		'customify_pro_license_data',
+		'blocksify_pro_license_data',
+	];
+
+	/**
+	 * The Customify Pro license key (from `customify_pro_license_data`), or ''.
+	 * Kept for callers that specifically want Customify Pro's key; the gate
+	 * itself uses {@see license_keys()} to also consider Blocksify Pro.
+	 */
+	public static function customify_pro_license_key(): string {
+		return self::read_license_key( 'customify_pro_license_data' );
+	}
+
+	/**
+	 * The Blocksify Pro license key (from `blocksify_pro_license_data`), or ''.
+	 */
+	public static function blocksify_pro_license_key(): string {
+		return self::read_license_key( 'blocksify_pro_license_data' );
+	}
+
+	/**
+	 * Read one license option row's `license` key, trimmed, or '' when absent.
+	 *
+	 * @param string $option_name wp_option name.
+	 */
+	private static function read_license_key( string $option_name ): string {
+		$data = get_option( $option_name, [] );
+		return is_array( $data ) && ! empty( $data['license'] ) ? trim( (string) $data['license'] ) : '';
+	}
+
+	/**
+	 * Every configured PressMaximum license key, de-duplicated, in priority
+	 * order (Customify Pro first, then Blocksify Pro). Empty when none is set.
+	 * The gate verifies each against the template's product and accepts the
+	 * first that validates — so a key entered under either plugin unlocks a
+	 * premium template it covers.
+	 *
+	 * @return string[]
+	 */
+	public static function license_keys(): array {
+		$keys = [];
+		foreach ( self::LICENSE_OPTION_KEYS as $option_name ) {
+			$key = self::read_license_key( $option_name );
+			if ( '' !== $key && ! in_array( $key, $keys, true ) ) {
+				$keys[] = $key;
+			}
+		}
+		return $keys;
+	}
+
 	public function set_studio_url( string $url ): bool {
 		// No-op when locked by wp-config — the value would be ignored by
 		// `studio_url()` anyway, so persisting it would just confuse

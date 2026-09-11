@@ -259,6 +259,14 @@ class Customify_Adapter extends Theme_Adapter {
 		// Studio template faithfully; everything else is recommended.
 		$out['requiredPluginSlugs'] = self::required_plugin_slugs();
 
+		// Where the user enters their Customify Pro license key — the wizard's
+		// premium-license notice links here so a missing/invalid key is one
+		// click from the input. Filterable in case the panel route changes.
+		$out['licenseUrl'] = (string) apply_filters(
+			'custstsi_license_settings_url',
+			admin_url( 'admin.php?page=' . self::HOST_PAGE_SLUG . '#settings/customify-pro' )
+		);
+
 		return $out;
 	}
 

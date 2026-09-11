@@ -31,12 +31,39 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Spinner } from '@wordpress/components';
-import { close as closeIcon } from '@wordpress/icons';
+import { close as closeIcon, external as externalIcon, Icon } from '@wordpress/icons';
 
 import { jobs } from '../api';
 import { useJob } from '../hooks/useJob';
 import { PALETTES as FALLBACK_PALETTES, FONTS as FALLBACK_FONTS } from '../placeholders';
 import { getStyleBuilder } from '../style-builders';
+
+/**
+ * Decode leftover JSON `\uXXXX` (and the backslash-stripped `uXXXX` variant)
+ * escapes in a display string. Some template palette/font names reach us with
+ * their unicode escape mangled at the source — e.g. `"u00c9LANE Atelier"`,
+ * where the `\` before `u00c9` (É) was dropped — so the literal `u00c9` shows
+ * instead of the character. This repairs the label at render time; it only
+ * touches `u` followed by exactly 4 hex digits (with or without a leading
+ * backslash) and `\u{…}` forms, leaving ordinary words like "Ubuntu" alone.
+ *
+ * @param {string} str
+ * @return {string}
+ */
+function decodeUnicodeEscapes( str ) {
+	if ( typeof str !== 'string' || str.indexOf( 'u' ) === -1 ) {
+		return str;
+	}
+	return str
+		// \u{1F600} / u{1F600}
+		.replace( /\\?u\{([0-9a-fA-F]{1,6})\}/g, ( m, hex ) => {
+			try { return String.fromCodePoint( parseInt( hex, 16 ) ); } catch ( e ) { return m; }
+		} )
+		// É / u00c9
+		.replace( /\\?u([0-9a-fA-F]{4})/g, ( m, hex ) => {
+			try { return String.fromCharCode( parseInt( hex, 16 ) ); } catch ( e ) { return m; }
+		} );
+}
 
 /**
  * Host-provided palettes win when present (Customify adapter publishes
@@ -207,6 +234,34 @@ const BLOCKSIFY_DESC = __(
 // not be offered for install. Mirrors Plugin_Installer::EXCLUDED_SLUGS (PHP).
 const EXCLUDED_PLUGIN_SLUGS = [ 'pm-submitter', 'customify-starter-sites' ];
 
+// Purchase pages for the premium plugins the importer can't install
+// automatically. When such a plugin is required but not installed, the card
+// shows a "Get …" link so the user knows where to buy it before importing.
+// Keyed by plugin directory slug (also matched loosely, e.g. `blocksify-pro`).
+const PLUGIN_UPSELL_URLS = {
+	'customify-pro': 'https://pressmaximum.com/customify/pro/',
+	'blocksify-pro': 'https://pressmaximum.com/blocksify/pro/',
+};
+
+/**
+ * Resolve the upsell URL for a plugin slug, tolerating minor slug variants
+ * (`blocksify-pro/blocksify-pro`, `customify-pro-1`, …) by matching on the
+ * base name. Returns '' when the plugin isn't one we sell.
+ */
+function upsellUrlFor( slug ) {
+	const s = String( slug || '' ).toLowerCase();
+	if ( PLUGIN_UPSELL_URLS[ s ] ) {
+		return PLUGIN_UPSELL_URLS[ s ];
+	}
+	if ( s.indexOf( 'customify' ) !== -1 && s.indexOf( 'pro' ) !== -1 ) {
+		return PLUGIN_UPSELL_URLS['customify-pro'];
+	}
+	if ( s.indexOf( 'blocksify' ) !== -1 && s.indexOf( 'pro' ) !== -1 ) {
+		return PLUGIN_UPSELL_URLS['blocksify-pro'];
+	}
+	return '';
+}
+
 const PHASES = [
 	{ key: 'fetching', from: 0, to: 8, label: __('Fetching template assets', 'customify-starter-sites') },
 	// Fonts are downloaded + installed right after the assets are
@@ -240,6 +295,12 @@ export function PreviewPanel({ template, onClose }) {
 	const [jobId, setJobId] = useState(null);
 	const [starting, setStarting] = useState(false);
 	const [startError, setStartError] = useState(null);
+
+	// License precheck for premium (Press Studio) templates. Runs when the
+	// user first reaches the plugins step; the verdict drives a warning banner
+	// there and disables Next/Start until a valid key is in place. `null` =
+	// not checked yet; `{ loading: true }` while in flight; else the verdict.
+	const [licenseCheck, setLicenseCheck] = useState(null);
 
 	// Custom palettes the template itself ships in its options.json
 	// `theme.mods.customify_color_palettes` blob. Fetched async after
@@ -651,6 +712,32 @@ export function PreviewPanel({ template, onClose }) {
 	};
 
 	const next = () => {
+		// On the plugins step, verify the license on click (not automatically)
+		// before advancing. A premium template must pass; free/unmapped tiers
+		// and an already-passed check advance immediately.
+		if (step === 1 && !(licenseCheck && licenseCheck.ok)) {
+			if (licenseChecking) {
+				return; // a check is already running — ignore repeat clicks
+			}
+			setLicenseCheck({ loading: true });
+			jobs.checkLicense(template.id)
+				.then((verdict) => {
+					setLicenseCheck(verdict);
+					// Advance only when the license is fine (or not required).
+					if (verdict && verdict.ok) {
+						setStep((s) => s + 1);
+					}
+					// Otherwise the banner renders and we stay on the step.
+				})
+				.catch(() => {
+					// Couldn't reach the store — fail open (server gate at Start
+					// is the real enforcement point) and advance.
+					setLicenseCheck({ required: false, ok: true, tier: '', status: 'precheck_error', code: '', message: '' });
+					setStep((s) => s + 1);
+				});
+			return;
+		}
+
 		if (step >= STEPS.length - 1) {
 			handleStart();
 			return;
@@ -703,6 +790,11 @@ export function PreviewPanel({ template, onClose }) {
 		}
 		setStep((s) => s + 1);
 	};
+
+	// The license is verified on the Next click (see `next()`), not
+	// automatically on entering the step. While that request is in flight the
+	// Next button shows a busy "Checking…" state and ignores repeat clicks.
+	const licenseChecking = !!( licenseCheck && licenseCheck.loading );
 
 	const isFirst = step === 0;
 	const isLast = step === STEPS.length - 1;
@@ -785,6 +877,7 @@ export function PreviewPanel({ template, onClose }) {
 										}
 										onBulkToggle={bulkToggleOptional}
 										loadingDetail={false}
+										licenseCheck={licenseCheck}
 									/>
 								)}
 								{step === 2 && (
@@ -837,14 +930,16 @@ export function PreviewPanel({ template, onClose }) {
 								<Button
 									variant="primary"
 									onClick={next}
-									isBusy={starting}
-									disabled={starting}
+									isBusy={starting || licenseChecking}
+									disabled={starting || licenseChecking}
 								>
-									{isLast
-										? (starting
-											? __('Starting…', 'customify-starter-sites')
-											: __('Start →', 'customify-starter-sites'))
-										: __('Next →', 'customify-starter-sites')
+									{licenseChecking
+										? __('Checking…', 'customify-starter-sites')
+										: isLast
+											? (starting
+												? __('Starting…', 'customify-starter-sites')
+												: __('Start →', 'customify-starter-sites'))
+											: __('Next →', 'customify-starter-sites')
 									}
 								</Button>
 							</div>
@@ -957,7 +1052,7 @@ function StyleStep({ palettes, palette, setPalette, typography, setTypography, f
 									<span key={i} className="custstsi-tile__swatch" style={{ background: c }} />
 								))}
 							</span>
-							<span className="custstsi-tile__label">{p.name}</span>
+							<span className="custstsi-tile__label">{decodeUnicodeEscapes(p.name)}</span>
 						</button>
 					))}
 				</div>
@@ -986,7 +1081,7 @@ function StyleStep({ palettes, palette, setPalette, typography, setTypography, f
 								onClick={() => setTypography(f.id)}
 							>
 								<span className="custstsi-tile__font-heading" style={fontStyle}>Ag</span>
-								<span className="custstsi-tile__label" style={fontStyle}>{f.heading} · {f.body}</span>
+								<span className="custstsi-tile__label" style={fontStyle}>{decodeUnicodeEscapes(f.heading)} · {decodeUnicodeEscapes(f.body)}</span>
 							</button>
 						);
 					})}
@@ -998,7 +1093,36 @@ function StyleStep({ palettes, palette, setPalette, typography, setTypography, f
 
 // ── Step 1 ──────────────────────────────────────────────────────────────────
 
-function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, onBulkToggle, loadingDetail }) {
+function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, onBulkToggle, loadingDetail, licenseCheck }) {
+	// License precheck banner for premium templates. Shown only when the check
+	// has resolved to a blocking verdict (required + not ok); a valid license
+	// stays silent. The in-flight ("checking") state lives on the Next button
+	// instead of a banner here. The banner links straight to the license input
+	// (adapter-supplied `licenseUrl`) so a bad/missing key is one click away.
+	const licenseUrl =
+		typeof window !== 'undefined' && window.customifyStarterSites
+			? window.customifyStarterSites.licenseUrl || ''
+			: '';
+	const licenseNotice = ( licenseCheck && ! licenseCheck.loading && licenseCheck.required && ! licenseCheck.ok )
+		? (
+			<div className="custstsi-license-notice is-error" role="alert">
+				<span className="custstsi-license-notice__msg">
+					{ licenseCheck.message || __( 'A valid license is required to import this template.', 'customify-starter-sites' ) }
+				</span>
+				{ licenseUrl && (
+					<a
+						className="custstsi-license-notice__link"
+						href={ licenseUrl }
+						onClick={ ( e ) => e.stopPropagation() }
+					>
+						{ __( 'Enter license key', 'customify-starter-sites' ) }
+						<Icon icon={ externalIcon } size={ 16 } />
+					</a>
+				) }
+			</div>
+		)
+		: null;
+
 	const renderCard = (p) => {
 		const classes = ['custstsi-plugin'];
 		if (p.installed) classes.push('is-installed');
@@ -1014,8 +1138,32 @@ function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, on
 		// only activated once present — so the note is shown BELOW the
 		// name (its own row) instead of inline where it would clip the name.
 		const requiredNotInstalled = p.required && ! p.installed;
+		// Premium plugins (Customify Pro / Blocksify Pro) can't be installed
+		// automatically. When one is required but missing, surface a "Get …"
+		// link to its purchase page so the user can buy it before importing.
+		const upsellUrl = requiredNotInstalled ? upsellUrlFor(p.slug) : '';
 		const requiredNote = requiredNotInstalled
-			? <div className="custstsi-plugin__required-note">{__('Required', 'customify-starter-sites')}</div>
+			? (
+				<div className="custstsi-plugin__required-note">
+					{__('Required', 'customify-starter-sites')}
+					{upsellUrl && (
+						<a
+							className="custstsi-plugin__get"
+							href={upsellUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							onClick={(e) => e.stopPropagation()}
+						>
+							{sprintf(
+								/* translators: %s: plugin name, e.g. "Blocksify Pro" */
+								__('Get %s', 'customify-starter-sites'),
+								p.name
+							)}
+							<Icon icon={externalIcon} size={14} />
+						</a>
+					)}
+				</div>
+			)
 			: null;
 
 		// A required-but-not-installed plugin keeps its (disabled) checkbox
@@ -1085,6 +1233,8 @@ function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, on
 			<p className="custstsi-step__lede">
 				{__('Required plugins already installed are activated automatically during import. Any that aren’t installed won’t block the import — you’ll just see a warning. You can uncheck any recommended one you don’t want.', 'customify-starter-sites')}
 			</p>
+
+			{licenseNotice}
 
 			{(() => {
 				const missing = required.filter((p) => !p.installed);

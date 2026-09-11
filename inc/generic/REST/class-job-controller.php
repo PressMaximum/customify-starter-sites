@@ -68,6 +68,14 @@ class Job_Controller {
 			'permission_callback' => $perm,
 			'callback'            => [ $this, 'cancel_job' ],
 		] );
+		// License precheck for the wizard's plugins step — lets the UI show a
+		// warning + block "Next" before the user reaches Start, mirroring the
+		// server gate applied at job creation.
+		register_rest_route( self::NAMESPACE, '/theme/license/check', [
+			'methods'             => 'POST',
+			'permission_callback' => $perm,
+			'callback'            => [ $this, 'check_license' ],
+		] );
 	}
 
 	public function check_permission( \WP_REST_Request $request ) {
@@ -228,62 +236,248 @@ class Job_Controller {
 	}
 
 	/**
-	 * Reject the request when the template needs a Pro plugin that is not
-	 * installed on this site.
+	 * Store item ids that unlock each premium template tier. A template whose
+	 * tier maps here imports only when a configured license key validates for
+	 * ANY one of the listed products; `free` (and any unmapped tier) needs no
+	 * license.
 	 *
-	 * Mirrors the client-side gate in TemplateCard: a template is Pro when
-	 * its `plugins[]` include a Pro slug; it can be imported only once each
-	 * required Pro plugin is installed (inactive is fine — the importer
-	 * activates it). Fails open if the template's plugin list cannot be
-	 * fetched, so a Studio outage never blocks a legitimate import.
+	 *   pressstudio → 66895 (Press Studio) or 66894 (Blocksify Pro)
+	 *   presssuites → 66896 (Press Suites) or 66894 (Blocksify Pro)
+	 *
+	 * Blocksify Pro (66894) is accepted for both tiers so a Blocksify Pro
+	 * licensee can import premium templates. The `855` id in customify-pro is
+	 * the *plugin's own* license and is unrelated — a Press Studio key returns
+	 * `invalid_item_id` for it.
+	 *
+	 * @var array<string, int[]>
+	 */
+	private const LICENSE_TIER_ITEM_IDS = [
+		'pressstudio' => [ 66895, 66894 ],
+		'presssuites' => [ 66896, 66894 ],
+	];
+
+	/**
+	 * Store statuses that grant import. A Press Studio key is accepted as long
+	 * as it belongs to the product and is still live: `valid` (activated here),
+	 * or `inactive` / `site_inactive` (a real key not yet activated for this
+	 * site — the user only needs to have entered it, per product requirement).
+	 * Anything else (`expired`, `disabled`, `revoked`, `invalid`,
+	 * `invalid_item_id`, `item_name_mismatch`, …) blocks.
+	 */
+	private const LICENSE_OK_STATUSES = [ 'valid', 'inactive', 'site_inactive' ];
+
+	/**
+	 * REST: precheck a template's license for the wizard's plugins step.
+	 *
+	 * Lets the UI show a warning + disable "Next"/"Start" before the user
+	 * reaches the end, mirroring the server gate at job creation. Always 200 —
+	 * the verdict is in the body, not the HTTP status, so the UI can render it
+	 * inline. Shape:
+	 *
+	 *   { required: bool, ok: bool, tier: string, status: string,
+	 *     code: string, message: string }
+	 *
+	 * `required=false` → free/unmapped tier, nothing to check (ok=true).
+	 *
+	 * @return \WP_REST_Response
+	 */
+	public function check_license( \WP_REST_Request $request ) {
+		$body        = $request->get_json_params();
+		$template_id = (int) ( is_array( $body ) ? ( $body['template_id'] ?? 0 ) : 0 );
+		if ( $template_id <= 0 ) {
+			return new \WP_Error( 'custstsi_bad_template', 'template_id is required.', [ 'status' => 400 ] );
+		}
+		return new \WP_REST_Response( $this->evaluate_license( $template_id ), 200 );
+	}
+
+	/**
+	 * Convert the license evaluation into a WP_Error for the job-create gate,
+	 * or null when the import is allowed. Thin wrapper over
+	 * {@see evaluate_license()} so the create + precheck paths share one rule.
 	 *
 	 * @param int $template_id Studio template id.
 	 * @return \WP_Error|null WP_Error when blocked, null when allowed.
 	 */
 	private function pro_gate_error( int $template_id ) {
-		if ( ! $this->client instanceof Remote_Client ) {
-			return null; // No client wired — cannot evaluate; fail open.
-		}
-		if ( ! class_exists( '\Customify_Starter_Sites\Adapters\Customify_Adapter' ) ) {
+		$verdict = $this->evaluate_license( $template_id );
+		if ( ! empty( $verdict['ok'] ) ) {
 			return null;
+		}
+		return new \WP_Error(
+			(string) $verdict['code'],
+			(string) $verdict['message'],
+			[
+				'status'         => 403,
+				'license'        => (string) $verdict['tier'],
+				'license_status' => (string) $verdict['status'],
+			]
+		);
+	}
+
+	/**
+	 * Evaluate whether a template may be imported under the current license,
+	 * for both the job-create gate and the wizard precheck.
+	 *
+	 * Free templates import with no license. For a premium tier
+	 * (Press Studio / Press Suites), the caller must have a license key
+	 * configured (Settings → Customify Pro) AND that key must validate against
+	 * the store for that tier's product id — checked live via EDD
+	 * `check_license`, so an expired/wrong-product key is caught immediately.
+	 * A Press Studio license covers the whole template (both Customify Pro and
+	 * Blocksify Pro), so a single key per tier is all that's checked.
+	 *
+	 * Missing *plugins* never affect this — they only warn during the run.
+	 * Fails open (ok=true) when the tier can't be determined (Studio outage)
+	 * or the store is unreachable, never when a known-premium tier has a bad
+	 * key.
+	 *
+	 * @param int $template_id Studio template id.
+	 * @return array{required:bool, ok:bool, tier:string, status:string, code:string, message:string}
+	 */
+	private function evaluate_license( int $template_id ): array {
+		$allow = static function ( string $tier = '', string $status = 'ok', bool $required = false ): array {
+			return [
+				'required' => $required,
+				'ok'       => true,
+				'tier'     => $tier,
+				'status'   => $status,
+				'code'     => '',
+				'message'  => '',
+			];
+		};
+
+		if ( ! $this->client instanceof Remote_Client ) {
+			return $allow(); // No client wired — cannot evaluate; fail open.
 		}
 
 		$res = $this->client->get( "templates/{$template_id}" );
 		if ( ! is_array( $res ) || (int) ( $res['status'] ?? 0 ) < 200 || (int) ( $res['status'] ?? 0 ) >= 300 ) {
-			return null; // Detail unavailable — fail open.
+			return $allow(); // Detail unavailable — fail open.
 		}
-		$body    = $res['body'] ?? null;
-		$plugins = is_array( $body ) && isset( $body['plugins'] ) && is_array( $body['plugins'] )
-			? $body['plugins']
-			: [];
+		$body = $res['body'] ?? null;
+		$tier = is_array( $body ) ? strtolower( trim( (string) ( $body['license'] ?? '' ) ) ) : '';
 
-		// Flatten to directory slugs.
-		$slugs = [];
-		foreach ( $plugins as $plugin ) {
-			if ( is_string( $plugin ) ) {
-				$slugs[] = sanitize_key( $plugin );
-			} elseif ( is_array( $plugin ) && isset( $plugin['slug'] ) ) {
-				$slugs[] = sanitize_key( (string) $plugin['slug'] );
+		/**
+		 * Filter the tier → store item-id map, so new premium tiers (or a
+		 * staging store's ids) can be wired without a code change.
+		 *
+		 * @param array<string, int[]> $map  tier slug => list of accepting EDD item ids.
+		 */
+		$tier_map = (array) apply_filters( 'custstsi_license_tier_item_map', self::LICENSE_TIER_ITEM_IDS );
+
+		// Free / unmapped tiers need no license.
+		if ( '' === $tier || 'free' === $tier || empty( $tier_map[ $tier ] ) ) {
+			return $allow( $tier, 'not_required', false );
+		}
+		// A tier accepts any of one or more products; tolerate a bare int too.
+		$item_ids = array_values( array_filter( array_map( 'intval', (array) $tier_map[ $tier ] ) ) );
+		if ( empty( $item_ids ) ) {
+			return $allow( $tier, 'not_required', false );
+		}
+
+		// Premium tier — at least one PressMaximum license key must be
+		// configured (Customify Pro and/or Blocksify Pro).
+		$keys = \Customify_Starter_Sites\Settings\Options_Store::license_keys();
+		if ( empty( $keys ) ) {
+			return [
+				'required' => true,
+				'ok'       => false,
+				'tier'     => $tier,
+				'status'   => 'missing',
+				'code'     => 'custstsi_license_required',
+				'message'  => __( 'This is a premium template. Enter your Customify Pro or Blocksify Pro license key under Settings → Customify Pro to import it.', 'customify-starter-sites' ),
+			];
+		}
+
+		// Try every configured key against every product the tier accepts; the
+		// first key+product pair that validates (or a transient store error)
+		// unlocks the import. Keep the last real status for the error message.
+		$last_status = 'invalid';
+		foreach ( $keys as $key ) {
+			foreach ( $item_ids as $item_id ) {
+				$status = $this->check_license_status( $key, $item_id );
+
+				// Accepted, or a transient store error → fail open.
+				if ( in_array( $status, self::LICENSE_OK_STATUSES, true ) || 'unknown' === $status ) {
+					return $allow( $tier, $status, true );
+				}
+				$last_status = $status;
 			}
 		}
 
-		$pro       = \Customify_Starter_Sites\Adapters\Customify_Adapter::pro_plugin_slugs();
-		$installed = \Customify_Starter_Sites\Adapters\Customify_Adapter::installed_pro_plugin_slugs();
-		$required  = array_intersect( $pro, $slugs );
-		$missing   = array_values( array_diff( $required, $installed ) );
+		return [
+			'required' => true,
+			'ok'       => false,
+			'tier'     => $tier,
+			'status'   => $last_status,
+			'code'     => 'custstsi_license_invalid',
+			'message'  => sprintf(
+				/* translators: %s: license status from the store, e.g. "expired" or "invalid_item_id" */
+				__( 'Your license can’t import this template (status: %s). Check that your Customify Pro or Blocksify Pro license key is valid and covers this template under Settings → Customify Pro.', 'customify-starter-sites' ),
+				$last_status
+			),
+		];
+	}
 
-		if ( empty( $missing ) ) {
-			return null;
+	/**
+	 * Validate a license key against the store for a specific product via EDD
+	 * Software Licensing `check_license`, mirroring customify-pro's updater
+	 * transport (same store URL + parameters). Returns the store's `license`
+	 * status string lower-cased — `valid`, `inactive`, `site_inactive`,
+	 * `expired`, `disabled`, `invalid`, `invalid_item_id`, … — or `unknown`
+	 * ONLY when the store can't be reached, returns non-2xx, or an unparseable
+	 * body (so callers can fail open on outages). A parseable response is
+	 * trusted even when `success:false` — the store still reports the real
+	 * status there (e.g. a garbage key returns `success:false, license:invalid`),
+	 * and treating that as `unknown` would wrongly let a bad key through.
+	 *
+	 * @param string $key     License key.
+	 * @param int    $item_id EDD download id to validate the key against.
+	 * @return string Store status, or 'unknown' on transport/parse failure.
+	 */
+	private function check_license_status( string $key, int $item_id ): string {
+		// Store URL from customify-pro when available (single source of truth),
+		// else the known default. Overridable by constant for staging/tests.
+		$store = defined( 'CUSTOMIFY_PRO_STORE_URL' ) ? (string) CUSTOMIFY_PRO_STORE_URL : 'https://pressmaximum.com/';
+		if ( class_exists( '\Customify_Pro' ) && isset( \Customify_Pro::$api_url ) && '' !== (string) \Customify_Pro::$api_url ) {
+			$store = (string) \Customify_Pro::$api_url;
 		}
 
-		return new \WP_Error(
-			'custstsi_pro_required',
-			__( 'This template requires Pro plugins that are not installed yet. Please install Customify Pro and Blocksify Pro first.', 'customify-starter-sites' ),
-			[
-				'status'  => 403,
-				'missing' => $missing,
-			]
-		);
+		/**
+		 * Filter the EDD check_license request parameters.
+		 *
+		 * @param array<string,mixed> $params  EDD request body.
+		 * @param string              $key     License key being checked.
+		 * @param int                 $item_id Product id being checked against.
+		 */
+		$params = (array) apply_filters( 'custstsi_license_check_params', [
+			'edd_action' => 'check_license',
+			'license'    => $key,
+			'item_id'    => $item_id,
+			'url'        => home_url(),
+		], $key, $item_id );
+
+		$response = wp_remote_post( $store, [
+			'timeout'   => 15,
+			'sslverify' => false, // matches customify-pro's updater
+			'body'      => $params,
+		] );
+
+		if ( is_wp_error( $response ) ) {
+			return 'unknown';
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( $code < 200 || $code >= 300 ) {
+			return 'unknown';
+		}
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		// Trust any parseable `license` field, even under `success:false` — the
+		// store reports the real status there (garbage key → invalid, etc.).
+		// Only a missing/non-string license is treated as an outage.
+		if ( ! is_array( $data ) || ! isset( $data['license'] ) || ! is_string( $data['license'] ) ) {
+			return 'unknown';
+		}
+		return strtolower( trim( $data['license'] ) );
 	}
 
 	public function get_job( \WP_REST_Request $request ) {

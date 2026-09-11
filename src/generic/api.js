@@ -97,4 +97,19 @@ export const jobs = {
 			method: 'POST',
 		} );
 	},
+
+	/**
+	 * Precheck a template's license before import (wizard plugins step).
+	 * Always resolves 200; the verdict is in the body.
+	 *
+	 * @param {number} templateId
+	 * @return {Promise<{required:boolean, ok:boolean, tier:string, status:string, code:string, message:string}>}
+	 */
+	checkLicense( templateId ) {
+		return apiFetch( {
+			path:   `${ NS }/theme/license/check`,
+			method: 'POST',
+			data:   { template_id: templateId },
+		} );
+	},
 };

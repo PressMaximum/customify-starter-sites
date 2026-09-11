@@ -5,7 +5,7 @@ Plugin URI: https://wpcustomify.com
 Description: Browse Customify starter templates, preview them live, and import the one you love — pages, menus, plugins, color palette and typography all in place.
 Author: pressmaximum
 Author URI: https://pressmaximum.com/customify
-Version: 1.0.0
+Version: 1.0.1
 Requires at least: 7.0
 Requires PHP: 7.4
 Text Domain: customify-starter-sites
@@ -16,7 +16,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CUSTOMIFY_STARTER_SITES_VERSION', '1.0.0' );
+define( 'CUSTOMIFY_STARTER_SITES_VERSION', '1.0.1' );
 define( 'CUSTOMIFY_STARTER_SITES_FILE', __FILE__ );
 define( 'CUSTOMIFY_STARTER_SITES_URL', trailingslashit( plugins_url( '', CUSTOMIFY_STARTER_SITES_FILE ) ) );
 define( 'CUSTOMIFY_STARTER_SITES_PATH', trailingslashit( plugin_dir_path( CUSTOMIFY_STARTER_SITES_FILE ) ) );

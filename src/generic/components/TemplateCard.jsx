@@ -130,7 +130,14 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 			</div>
 
 			<div className="custstsi-card__content">
-				<div className="custstsi-card__body">
+				<div
+					className="custstsi-card__body"
+					onClick={ handleThumbClick }
+					role="button"
+					tabIndex={ 0 }
+					onKeyDown={ ( e ) => { if ( e.key === 'Enter' ) handleThumbClick( e ); } }
+					aria-label={ name }
+				>
 					<h3 className="custstsi-card__title" title={ name }>{ name }</h3>
 					{ description && (
 						<p className="custstsi-card__desc">{ description }</p>
