@@ -9,6 +9,36 @@
 import { Button, Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 
+/**
+ * License tag — same markup/classes as the public template library
+ * (`pmtpl-license`): a plain "Press" prefix + a dark "Studio" (or other
+ * tier) pill; the `free` tier renders as a single muted "Free". The card
+ * stylesheet ports the library's `.pmtpl-license` rules verbatim.
+ */
+function LicenseBadge( { license } ) {
+	if ( ! license ) {
+		return null;
+	}
+	if ( 'free' === license ) {
+		return (
+			<span className="pmtpl-license pmtpl-license--free">
+				{ __( 'Free', 'customify-starter-sites' ) }
+			</span>
+		);
+	}
+	if ( 0 === license.indexOf( 'press' ) ) {
+		const tier = license.slice( 5 );
+		const tierLabel = tier ? tier.charAt( 0 ).toUpperCase() + tier.slice( 1 ) : license;
+		return (
+			<span className="pmtpl-license">
+				<span className="pmtpl-license__prefix">Press</span>{ ' ' }
+				<span className="pmtpl-license__tier">{ tierLabel }</span>
+			</span>
+		);
+	}
+	return <span className="pmtpl-license">{ license }</span>;
+}
+
 export function TemplateCard( { template, onSelect, loading = false } ) {
 	// Studio's preview_image is a nested attachment-shape (see
 	// `docs/studio/rest-api.md` §preview_image): full / medium / thumb
@@ -42,14 +72,10 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 		typeof template.excerpt === 'string'
 			? template.excerpt
 			: template.description || '';
-	// License badge (matches the public library's "Press Studio" tag).
+	// License tag — replicates the public library's `pmtpl-license` markup
+	// exactly: "free" → a single grey "Free"; any "press*" tier → a plain
+	// "Press" prefix + a dark pill for the tier ("Studio", "Suites", …).
 	const license = template.license || '';
-	const licenseLabel =
-		license === 'pressstudio'
-			? __( 'Studio', 'customify-starter-sites' )
-			: license === 'free'
-				? __( 'Free', 'customify-starter-sites' )
-				: '';
 	// Studio's canonical demo URL lives at `preview_url` (verified from
 	// `GET /studio/templates`). `demo_url` / `frame_url` /
 	// `preview_route` are kept as fallbacks for legacy Studio schemas
@@ -115,30 +141,23 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 					) }
 				</div>
 				<footer className="custstsi-card__footer">
-					<Button
-						variant="primary"
-						className="custstsi-card__import"
-						onClick={ openWizard }
-					>
+					<Button variant="primary" onClick={ openWizard }>
 						{ __( 'Import', 'customify-starter-sites' ) }
 					</Button>
-					{ licenseLabel && (
-						<span className={ `custstsi-card__license is-${ license }` }>
-							{ licenseLabel }
-						</span>
-					) }
-					<button
-						type="button"
+					<Button
+						variant="secondary"
 						className="custstsi-card__preview"
 						onClick={ openDemo }
-						aria-label={ __( 'Preview site', 'customify-starter-sites' ) }
-						title={ __( 'Preview site', 'customify-starter-sites' ) }
-					>
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" aria-hidden="true" focusable="false">
-							<path d="M7 7h10v10" />
-							<path d="M7 17 17 7" />
-						</svg>
-					</button>
+						label={ __( 'Preview site', 'customify-starter-sites' ) }
+						showTooltip
+						icon={
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" aria-hidden="true" focusable="false">
+								<path d="M7 7h10v10" />
+								<path d="M7 17 17 7" />
+							</svg>
+						}
+					/>
+					<LicenseBadge license={ license } />
 				</footer>
 			</div>
 		</article>
