@@ -181,6 +181,10 @@ class Remote_Client {
 
 		return array_merge( $item, [
 			'name'           => (string) ( $item['title'] ?? '' ),
+			// Catalog license casing is inconsistent ("free"/"Free",
+			// "pressstudio"/"PressStudio") — normalize to a lower-case slug so
+			// every consumer (card badge, filters) treats them the same.
+			'license'        => strtolower( (string) ( $item['license'] ?? '' ) ),
 			'preview_image'  => $preview_image,
 			'thumb_url'      => $thumb_url,
 			'keywords'       => $keywords,

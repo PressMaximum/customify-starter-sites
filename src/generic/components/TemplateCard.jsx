@@ -12,24 +12,19 @@ import { external } from '@wordpress/icons';
 
 /**
  * License tag — same markup/classes as the public template library
- * (`pmtpl-license`): a plain "Press" prefix + a dark "Studio" (or other
- * tier) pill; the `free` tier renders as a single muted "Free". The card
- * stylesheet ports the library's `.pmtpl-license` rules verbatim.
+ * (`pmtpl-license`): a plain "Press" prefix + a dark tier pill ("Studio", …).
+ * `free` shows NO badge. The catalog's license casing is inconsistent
+ * ("free"/"Free", "pressstudio"/"PressStudio"), so normalize to lower-case
+ * before matching. The card stylesheet ports the library's rules verbatim.
  */
 function LicenseBadge( { license } ) {
-	if ( ! license ) {
-		return null;
+	const slug = String( license || '' ).trim().toLowerCase();
+	if ( '' === slug || 'free' === slug ) {
+		return null; // free (or unset) has no badge
 	}
-	if ( 'free' === license ) {
-		return (
-			<span className="pmtpl-license pmtpl-license--free">
-				{ __( 'Free', 'customify-starter-sites' ) }
-			</span>
-		);
-	}
-	if ( 0 === license.indexOf( 'press' ) ) {
-		const tier = license.slice( 5 );
-		const tierLabel = tier ? tier.charAt( 0 ).toUpperCase() + tier.slice( 1 ) : license;
+	if ( 0 === slug.indexOf( 'press' ) ) {
+		const tier = slug.slice( 'press'.length );
+		const tierLabel = tier ? tier.charAt( 0 ).toUpperCase() + tier.slice( 1 ) : 'Studio';
 		return (
 			<span className="pmtpl-license">
 				<span className="pmtpl-license__prefix">Press</span>{ ' ' }
