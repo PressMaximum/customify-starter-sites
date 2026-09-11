@@ -171,8 +171,13 @@ class Remote_Client {
 			}
 		}
 
-		// `excerpt` in the catalog IS the keywords array.
-		$keywords = is_array( $item['excerpt'] ?? null ) ? $item['excerpt'] : [];
+		// Keywords: the catalog now ships a dedicated `keywords` array and uses
+		// `excerpt` for the prose description. Fall back to a legacy array-shaped
+		// `excerpt` for older catalogs. `excerpt` (the description) is preserved
+		// as-is via array_merge below.
+		$keywords = is_array( $item['keywords'] ?? null )
+			? $item['keywords']
+			: ( is_array( $item['excerpt'] ?? null ) ? $item['excerpt'] : [] );
 
 		return array_merge( $item, [
 			'name'           => (string) ( $item['title'] ?? '' ),

@@ -35,9 +35,13 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 		? `${ rawThumb }${ rawThumb.includes( '?' ) ? '&' : '?' }v=${ encodeURIComponent( template.version ) }`
 		: rawThumb;
 	const name    = template.title || template.name || `#${ template.id }`;
-	// Prose description shown under the title when the catalog provides one.
-	// (`keywords`/`excerpt` are tag arrays, never a description.)
-	const description = template.description || template.content || template.subtitle || '';
+	// Prose description under the title (mirrors the public library card).
+	// The catalog now ships it as `excerpt` (a string); `keywords` is the
+	// separate tag array. Guard against the legacy array-shaped excerpt.
+	const description =
+		typeof template.excerpt === 'string'
+			? template.excerpt
+			: template.description || '';
 	// License badge (matches the public library's "Press Studio" tag).
 	const license = template.license || '';
 	const licenseLabel =

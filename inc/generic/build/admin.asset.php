@@ -1,1 +1,1 @@
-<?php if ( ! defined( 'ABSPATH' ) ) { exit; } return array('dependencies' => array('react-jsx-runtime', 'wp-api-fetch', 'wp-components', 'wp-dom-ready', 'wp-element', 'wp-i18n', 'wp-primitives'), 'version' => '345f6449530100922b3a');
+<?php if ( ! defined( 'ABSPATH' ) ) { exit; } return array('dependencies' => array('react-jsx-runtime', 'wp-api-fetch', 'wp-components', 'wp-dom-ready', 'wp-element', 'wp-i18n', 'wp-primitives'), 'version' => '8e2520dfe6fb96248528');
