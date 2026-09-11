@@ -8,6 +8,7 @@
 
 import { Button, Spinner } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { external } from '@wordpress/icons';
 
 /**
  * License tag — same markup/classes as the public template library
@@ -150,12 +151,7 @@ export function TemplateCard( { template, onSelect, loading = false } ) {
 						onClick={ openDemo }
 						label={ __( 'Preview site', 'customify-starter-sites' ) }
 						showTooltip
-						icon={
-							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" aria-hidden="true" focusable="false">
-								<path d="M7 7h10v10" />
-								<path d="M7 17 17 7" />
-							</svg>
-						}
+						icon={ external }
 					/>
 					<LicenseBadge license={ license } />
 				</footer>

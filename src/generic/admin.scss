@@ -309,12 +309,6 @@ $accent-rgb: var(--wp-admin-theme-color--rgb, 34, 113, 177);
     gap: 8px;
   }
 
-  // Keep the preview glyph sized inside the default WP icon button.
-  &__preview.components-button svg {
-    width: 20px;
-    height: 20px;
-  }
-
   // License tag — ported verbatim from the public library's catalog.css
   // (`.pmtpl-license`): a plain "Press" prefix + a dark tier pill; `--free`
   // is a single muted word. Pushed to the footer's right edge to match the
