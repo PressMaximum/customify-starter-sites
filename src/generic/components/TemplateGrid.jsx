@@ -23,18 +23,70 @@
 
 import { useEffect, useMemo, useState } from '@wordpress/element';
 import {
+	Button,
 	Spinner,
-	Notice,
-	SearchControl,
-	DropdownMenu,
+		Notice,
+		SearchControl,
+		SelectControl,
+		DropdownMenu,
 	MenuGroup,
 	MenuItemsChoice,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { category as categoryIcon } from '@wordpress/icons';
+import { category as categoryIcon, chevronDownSmall } from '@wordpress/icons';
 
 import { studio } from '../api';
 import { TemplateCard } from './TemplateCard';
+
+function categorySlug( category ) {
+	return String( category?.slug || category?.id || category?.name || '' );
+}
+
+function categoryLabel( category ) {
+	return String( category?.name || category?.label || categorySlug( category ) );
+}
+
+/** Build top-level category buttons with their visible descendants. */
+function buildCategoryGroups( categories ) {
+	const visible = categories.filter( ( category ) => Number( category?.count || 0 ) > 0 );
+	const ids = new Set( visible.map( ( category ) => String( category?.id || categorySlug( category ) ) ) );
+	const childrenByParent = new Map();
+
+	visible.forEach( ( category ) => {
+		const parent = String( category?.parent || 0 );
+		const children = childrenByParent.get( parent ) || [];
+		children.push( category );
+		childrenByParent.set( parent, children );
+	} );
+
+	const descendantsFor = ( root ) => {
+		const descendants = [];
+		const seen = new Set();
+		const walk = ( parentId, depth ) => {
+			( childrenByParent.get( String( parentId ) ) || [] ).forEach( ( child ) => {
+				const childId = String( child?.id || categorySlug( child ) );
+				if ( seen.has( childId ) ) {
+					return;
+				}
+				seen.add( childId );
+				descendants.push( { category: child, depth } );
+				walk( childId, depth + 1 );
+			} );
+		};
+		walk( root?.id || categorySlug( root ), 1 );
+		return descendants;
+	};
+
+	return visible
+		.filter( ( category ) => {
+			const parent = String( category?.parent || 0 );
+			return '0' === parent || ! ids.has( parent );
+		} )
+		.map( ( category ) => ( {
+			category,
+			descendants: descendantsFor( category ),
+		} ) );
+}
 
 export function TemplateGrid({ onSelect, loadingId = null }) {
 	const [items, setItems] = useState([]);
@@ -42,6 +94,7 @@ export function TemplateGrid({ onSelect, loadingId = null }) {
 	const [error, setError] = useState(null);
 	const [categories, setCategories] = useState([]);
 	const [activeCat, setActiveCat] = useState('all');
+	const [licenseFilter, setLicenseFilter] = useState('all');
 	const [search, setSearch] = useState('');
 
 	// `?no_cache=1` on the admin page URL forwards to the proxy, which clears
@@ -55,6 +108,8 @@ export function TemplateGrid({ onSelect, loadingId = null }) {
 			return {};
 		}
 	}, []);
+
+	const categoryGroups = useMemo( () => buildCategoryGroups( categories ), [ categories ] );
 
 	// Categories — one-shot fetch on mount. Failure leaves the strip
 	// empty (just the "All" pill) rather than blocking the grid.
@@ -120,11 +175,23 @@ export function TemplateGrid({ onSelect, loadingId = null }) {
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
 		return items.filter((t) => {
+			const license = String( t.license || 'free' ).trim().toLowerCase();
+			if ( 'all' !== licenseFilter && licenseFilter !== license ) {
+				return false;
+			}
 			if (activeCat !== 'all') {
-				const slugs = Array.isArray(t.category_slugs) ? t.category_slugs
-					: Array.isArray(t.categories) ? t.categories.map((c) => c.slug || c)
-						: [];
-				if (!slugs.includes(activeCat)) {
+				const slugs = new Set( Array.isArray( t.category_slugs ) ? t.category_slugs : [] );
+				if ( Array.isArray( t.categories ) ) {
+					t.categories.forEach( ( category ) => {
+						if ( category?.slug ) {
+							slugs.add( category.slug );
+						}
+						if ( Array.isArray( category?.path ) ) {
+							category.path.forEach( ( slug ) => slugs.add( slug ) );
+						}
+					} );
+				}
+				if ( ! slugs.has( activeCat ) ) {
 					return false;
 				}
 			}
@@ -138,13 +205,14 @@ export function TemplateGrid({ onSelect, loadingId = null }) {
 			const kws = Array.isArray(t.keywords) ? t.keywords : [];
 			return kws.some((k) => String(k).toLowerCase().includes(q));
 		});
-	}, [items, activeCat, search]);
+	}, [items, activeCat, licenseFilter, search]);
 
 	const handleSearch = (value) => {
 		setSearch(value);
 	};
 
 	const isEmbedded = !! ( typeof window !== 'undefined' && window.customifyStarterSites?.embedded );
+	const allLabel = __( 'All', 'customify-starter-sites' );
 
 	return (
 		<div className={ 'custstsi-grid-page' + ( isEmbedded ? ' is-embedded' : '' ) }>
@@ -163,39 +231,64 @@ export function TemplateGrid({ onSelect, loadingId = null }) {
 			)}
 
 			<div className="custstsi-topbar">
-				{ /*
-				 * Category filter — DropdownMenu with `MenuItemsChoice` so
-				 * the active slug gets a checkmark for free. The toggle
-				 * surface shows the current selection inline so the user
-				 * doesn't have to open the menu to see what's active.
-				 */ }
 				<div className="custstsi-categories">
-					{ ( () => {
-						const allLabel = __( 'All', 'customify-starter-sites' );
+					<Button
+						icon={ categoryIcon }
+						className={ 'custstsi-categories__item' + ( 'all' === activeCat ? ' is-active' : '' ) }
+						aria-pressed={ 'all' === activeCat }
+						onClick={ () => setActiveCat( 'all' ) }
+					>
+						{ allLabel }
+					</Button>
+
+					{ categoryGroups.map( ( group ) => {
+						const slug = categorySlug( group.category );
+						const label = categoryLabel( group.category );
+						if ( 0 === group.descendants.length ) {
+							return (
+								<Button
+									key={ slug }
+									className={ 'custstsi-categories__item' + ( slug === activeCat ? ' is-active' : '' ) }
+									aria-pressed={ slug === activeCat }
+									onClick={ () => setActiveCat( slug ) }
+								>
+									{ label }
+								</Button>
+							);
+						}
+
 						const choices = [
-							{ label: allLabel, value: 'all' },
-							...categories.map( ( c ) => {
-								const slug = c.slug || c.id || c.name;
-								return { label: c.name || c.label || slug, value: String( slug ) };
-							} ),
+							{ label, value: slug },
+							...group.descendants.map( ( descendant ) => ( {
+								label: `${ '— '.repeat( descendant.depth ) }${ categoryLabel( descendant.category ) }`,
+								value: categorySlug( descendant.category ),
+							} ) ),
 						];
-						const current = choices.find( ( ch ) => ch.value === String( activeCat ) );
-						const triggerText = current ? current.label : allLabel;
+						const isActive = choices.some( ( choice ) => choice.value === activeCat );
+
 						return (
 							<DropdownMenu
-								icon={ categoryIcon }
-								text={ triggerText }
+								key={ slug }
+								icon={ chevronDownSmall }
+								text={ label }
 								label={ __( 'Filter by category', 'customify-starter-sites' ) }
-								toggleProps={ { className: 'custstsi-categories__toggle' } }
-								popoverProps={ { placement: 'bottom-start' } }
+								toggleProps={ {
+									className: 'custstsi-categories__toggle' + ( isActive ? ' is-active' : '' ),
+									'aria-pressed': isActive,
+									showTooltip: false,
+								} }
+								popoverProps={ {
+									placement: 'bottom-start',
+									className: 'custstsi-category-popover',
+								} }
 							>
 								{ ( { onClose } ) => (
 									<MenuGroup>
 										<MenuItemsChoice
 											choices={ choices }
 											value={ String( activeCat ) }
-											onSelect={ ( slug ) => {
-												setActiveCat( slug );
+											onSelect={ ( selectedSlug ) => {
+												setActiveCat( selectedSlug );
 												onClose();
 											} }
 										/>
@@ -203,18 +296,34 @@ export function TemplateGrid({ onSelect, loadingId = null }) {
 								) }
 							</DropdownMenu>
 						);
-					} )() }
+					} ) }
 				</div>
 
-				<div className="custstsi-search">
-					<SearchControl
-						__nextHasNoMarginBottom
-						value={search}
-						onChange={handleSearch}
-						placeholder={__('Search templates…', 'customify-starter-sites')}
-						label={__('Search templates', 'customify-starter-sites')}
-						hideLabelFromVision
-					/>
+				<div className="custstsi-filters">
+					<div className="custstsi-license-filter">
+						<SelectControl
+							__nextHasNoMarginBottom
+							value={ licenseFilter }
+							onChange={ setLicenseFilter }
+							label={ __( 'Filter by license', 'customify-starter-sites' ) }
+							hideLabelFromVision
+							options={ [
+								{ label: __( 'All licenses', 'customify-starter-sites' ), value: 'all' },
+								{ label: __( 'Free', 'customify-starter-sites' ), value: 'free' },
+								{ label: __( 'Press Studio', 'customify-starter-sites' ), value: 'pressstudio' },
+							] }
+						/>
+					</div>
+					<div className="custstsi-search">
+						<SearchControl
+							__nextHasNoMarginBottom
+							value={search}
+							onChange={handleSearch}
+							placeholder={__('Search templates…', 'customify-starter-sites')}
+							label={__('Search templates', 'customify-starter-sites')}
+							hideLabelFromVision
+						/>
+					</div>
 				</div>
 			</div>
 

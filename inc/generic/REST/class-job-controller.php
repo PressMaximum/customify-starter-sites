@@ -253,7 +253,30 @@ class Job_Controller {
 	 */
 	private const LICENSE_TIER_ITEM_IDS = [
 		'pressstudio' => [ 66895, 66894 ],
+		'presssuite'  => [ 66896, 66894 ],
 		'presssuites' => [ 66896, 66894 ],
+	];
+
+	/**
+	 * Product metadata shown by the wizard when a premium template is locked.
+	 * The API returns the matching label and checkout URL with the license
+	 * verdict so the React client never needs to hard-code product links.
+	 *
+	 * @var array<string, array{label:string, url:string}>
+	 */
+	private const LICENSE_TIER_UPSELLS = [
+		'pressstudio' => [
+			'label' => 'Press Studio',
+			'url'   => 'https://pressmaximum.com/pricing/',
+		],
+		'presssuite'  => [
+			'label' => 'Press Suite',
+			'url'   => 'https://pressmaximum.com/pricing/',
+		],
+		'presssuites' => [
+			'label' => 'Press Suite',
+			'url'   => 'https://pressmaximum.com/pricing/',
+		],
 	];
 
 	/**
@@ -267,15 +290,15 @@ class Job_Controller {
 	private const LICENSE_OK_STATUSES = [ 'valid', 'inactive', 'site_inactive' ];
 
 	/**
-	 * REST: precheck a template's license for the wizard's plugins step.
+	 * REST: precheck a template's license when its preview opens.
 	 *
 	 * Lets the UI show a warning + disable "Next"/"Start" before the user
 	 * reaches the end, mirroring the server gate at job creation. Always 200 —
 	 * the verdict is in the body, not the HTTP status, so the UI can render it
 	 * inline. Shape:
 	 *
-	 *   { required: bool, ok: bool, tier: string, status: string,
-	 *     code: string, message: string }
+	 *   { required: bool, ok: bool, tier: string, tier_label: string,
+	 *     upsell_url: string, status: string, code: string, message: string }
 	 *
 	 * `required=false` → free/unmapped tier, nothing to check (ok=true).
 	 *
@@ -284,10 +307,11 @@ class Job_Controller {
 	public function check_license( \WP_REST_Request $request ) {
 		$body        = $request->get_json_params();
 		$template_id = (int) ( is_array( $body ) ? ( $body['template_id'] ?? 0 ) : 0 );
+		$tier_hint   = sanitize_key( (string) ( is_array( $body ) ? ( $body['license'] ?? '' ) : '' ) );
 		if ( $template_id <= 0 ) {
 			return new \WP_Error( 'custstsi_bad_template', 'template_id is required.', [ 'status' => 400 ] );
 		}
-		return new \WP_REST_Response( $this->evaluate_license( $template_id ), 200 );
+		return new \WP_REST_Response( $this->evaluate_license( $template_id, $tier_hint ), 200 );
 	}
 
 	/**
@@ -331,31 +355,33 @@ class Job_Controller {
 	 * or the store is unreachable, never when a known-premium tier has a bad
 	 * key.
 	 *
-	 * @param int $template_id Studio template id.
-	 * @return array{required:bool, ok:bool, tier:string, status:string, code:string, message:string}
+	 * @param int    $template_id Studio template id.
+	 * @param string $tier_hint   Catalog tier used only when remote detail is unavailable.
+	 * @return array{required:bool, ok:bool, tier:string, tier_label:string, upsell_url:string, status:string, code:string, message:string}
 	 */
-	private function evaluate_license( int $template_id ): array {
-		$allow = static function ( string $tier = '', string $status = 'ok', bool $required = false ): array {
-			return [
+	private function evaluate_license( int $template_id, string $tier_hint = '' ): array {
+		$allow = function ( string $tier = '', string $status = 'ok', bool $required = false ): array {
+			return array_merge( [
 				'required' => $required,
 				'ok'       => true,
 				'tier'     => $tier,
 				'status'   => $status,
 				'code'     => '',
 				'message'  => '',
-			];
+			], $this->license_tier_upsell( $tier ) );
 		};
 
-		if ( ! $this->client instanceof Remote_Client ) {
-			return $allow(); // No client wired — cannot evaluate; fail open.
+		$tier = sanitize_key( $tier_hint );
+		if ( $this->client instanceof Remote_Client ) {
+			$res = $this->client->get( "templates/{$template_id}" );
+			if ( is_array( $res ) && (int) ( $res['status'] ?? 0 ) >= 200 && (int) ( $res['status'] ?? 0 ) < 300 ) {
+				$body        = $res['body'] ?? null;
+				$remote_tier = is_array( $body ) ? sanitize_key( (string) ( $body['license'] ?? '' ) ) : '';
+				if ( '' !== $remote_tier ) {
+					$tier = $remote_tier;
+				}
+			}
 		}
-
-		$res = $this->client->get( "templates/{$template_id}" );
-		if ( ! is_array( $res ) || (int) ( $res['status'] ?? 0 ) < 200 || (int) ( $res['status'] ?? 0 ) >= 300 ) {
-			return $allow(); // Detail unavailable — fail open.
-		}
-		$body = $res['body'] ?? null;
-		$tier = is_array( $body ) ? strtolower( trim( (string) ( $body['license'] ?? '' ) ) ) : '';
 
 		/**
 		 * Filter the tier → store item-id map, so new premium tiers (or a
@@ -379,14 +405,14 @@ class Job_Controller {
 		// configured (Customify Pro and/or Blocksify Pro).
 		$keys = \Customify_Starter_Sites\Settings\Options_Store::license_keys();
 		if ( empty( $keys ) ) {
-			return [
+			return array_merge( [
 				'required' => true,
 				'ok'       => false,
 				'tier'     => $tier,
 				'status'   => 'missing',
 				'code'     => 'custstsi_license_required',
 				'message'  => __( 'This is a premium template. Enter your Customify Pro or Blocksify Pro license key under Settings → Customify Pro to import it.', 'customify-starter-sites' ),
-			];
+			], $this->license_tier_upsell( $tier ) );
 		}
 
 		// Try every configured key against every product the tier accepts; the
@@ -405,7 +431,7 @@ class Job_Controller {
 			}
 		}
 
-		return [
+		return array_merge( [
 			'required' => true,
 			'ok'       => false,
 			'tier'     => $tier,
@@ -416,6 +442,27 @@ class Job_Controller {
 				__( 'Your license can’t import this template (status: %s). Check that your Customify Pro or Blocksify Pro license key is valid and covers this template under Settings → Customify Pro.', 'customify-starter-sites' ),
 				$last_status
 			),
+		], $this->license_tier_upsell( $tier ) );
+	}
+
+	/**
+	 * Resolve product metadata for a catalog license tier.
+	 *
+	 * @param string $tier Normalized catalog license slug.
+	 * @return array{tier_label:string, upsell_url:string}
+	 */
+	private function license_tier_upsell( string $tier ): array {
+		/**
+		 * Filter the product label and checkout URL used for each premium tier.
+		 *
+		 * @param array<string, array{label:string, url:string}> $map Tier metadata.
+		 */
+		$map  = (array) apply_filters( 'custstsi_license_tier_upsell_map', self::LICENSE_TIER_UPSELLS );
+		$item = isset( $map[ $tier ] ) && is_array( $map[ $tier ] ) ? $map[ $tier ] : [];
+
+		return [
+			'tier_label' => sanitize_text_field( (string) ( $item['label'] ?? '' ) ),
+			'upsell_url' => esc_url_raw( (string) ( $item['url'] ?? '' ) ),
 		];
 	}
 

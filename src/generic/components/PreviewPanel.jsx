@@ -31,12 +31,21 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { Button, Spinner } from '@wordpress/components';
-import { close as closeIcon, external as externalIcon, Icon } from '@wordpress/icons';
+import {
+	close as closeIcon,
+	desktop,
+	external as externalIcon,
+	Icon,
+	mobile,
+	resizeCornerNE,
+	tablet,
+} from '@wordpress/icons';
 
 import { jobs } from '../api';
 import { useJob } from '../hooks/useJob';
 import { PALETTES as FALLBACK_PALETTES, FONTS as FALLBACK_FONTS } from '../placeholders';
 import { getStyleBuilder } from '../style-builders';
+import { LicenseBadge } from './TemplateCard';
 
 /**
  * Decode leftover JSON `\uXXXX` (and the backslash-stripped `uXXXX` variant)
@@ -220,6 +229,12 @@ const STEPS = [
 	{ key: 'content', label: __('Content & options', 'customify-starter-sites') },
 ];
 
+const PREVIEW_DEVICES = [
+	{ key: 'desktop', label: __( 'Desktop preview', 'customify-starter-sites' ), icon: desktop },
+	{ key: 'tablet', label: __( 'Tablet preview', 'customify-starter-sites' ), icon: tablet },
+	{ key: 'mobile', label: __( 'Mobile preview', 'customify-starter-sites' ), icon: mobile },
+];
+
 // Baseline importer dependency — always shown at the top of the
 // Required plugins list, even if the Studio API doesn't include it.
 const BLOCKSIFY_SLUG = 'blocksify';
@@ -291,16 +306,56 @@ export function PreviewPanel({ template, onClose }) {
 	const [contentEnabled, setContentEnabled] = useState(true);
 	const [optWidgets, setOptWidgets] = useState(true);
 	const [optCustomizer, setOptCustomizer] = useState(true);
+	const [previewDevice, setPreviewDevice] = useState('desktop');
+	const [previewExpanded, setPreviewExpanded] = useState(false);
+	const [previewLoading, setPreviewLoading] = useState(true);
 
 	const [jobId, setJobId] = useState(null);
 	const [starting, setStarting] = useState(false);
 	const [startError, setStartError] = useState(null);
 
-	// License precheck for premium (Press Studio) templates. Runs when the
-	// user first reaches the plugins step; the verdict drives a warning banner
-	// there and disables Next/Start until a valid key is in place. `null` =
-	// not checked yet; `{ loading: true }` while in flight; else the verdict.
+	// Premium access is checked as soon as the preview opens. A blocked verdict
+	// replaces the sidebar navigation with the matching product upsell, while a
+	// valid or free template keeps the normal import flow.
 	const [licenseCheck, setLicenseCheck] = useState(null);
+	const licenseRequestRef = useRef(0);
+	const templateLicense = String(template?.license || 'free').trim().toLowerCase();
+	const mayRequireLicense = templateLicense !== '' && templateLicense !== 'free';
+
+	const verifyTemplateLicense = useCallback(() => {
+		if (!mayRequireLicense) {
+			setLicenseCheck({ required: false, ok: true, tier: templateLicense, status: 'not_required' });
+			return;
+		}
+
+		const requestId = ++licenseRequestRef.current;
+		setLicenseCheck({ required: true, ok: false, loading: true, tier: templateLicense });
+		jobs.checkLicense(template.id, templateLicense)
+			.then((verdict) => {
+				if (licenseRequestRef.current === requestId) {
+					setLicenseCheck(verdict);
+				}
+			})
+			.catch(() => {
+				if (licenseRequestRef.current === requestId) {
+					setLicenseCheck({
+						required: true,
+						ok: false,
+						tier: templateLicense,
+						status: 'check_failed',
+						code: 'custstsi_license_check_failed',
+						message: __('We couldn’t verify your license. Try again or enter your license key.', 'customify-starter-sites'),
+					});
+				}
+			});
+	}, [mayRequireLicense, template.id, templateLicense]);
+
+	useEffect(() => {
+		verifyTemplateLicense();
+		return () => {
+			licenseRequestRef.current += 1;
+		};
+	}, [verifyTemplateLicense]);
 
 	// Custom palettes the template itself ships in its options.json
 	// `theme.mods.customify_color_palettes` blob. Fetched async after
@@ -531,6 +586,15 @@ export function PreviewPanel({ template, onClose }) {
 		return rawIframeUrl + sep + '_fdi_cb=' + Date.now();
 	}, [rawIframeUrl]);
 
+	useEffect(() => {
+		setPreviewLoading(Boolean(iframeUrl));
+	}, [iframeUrl]);
+
+	const handleIframeLoad = useCallback(() => {
+		sendStyleToIframe();
+		setPreviewLoading(false);
+	}, [sendStyleToIframe]);
+
 	// Plugins — split into required vs recommended for the sidebar UI.
 	// Blocksify is always pinned at the top of the required list because
 	// the importer needs the Blocksify block library to apply Studio
@@ -712,32 +776,6 @@ export function PreviewPanel({ template, onClose }) {
 	};
 
 	const next = () => {
-		// On the plugins step, verify the license on click (not automatically)
-		// before advancing. A premium template must pass; free/unmapped tiers
-		// and an already-passed check advance immediately.
-		if (step === 1 && !(licenseCheck && licenseCheck.ok)) {
-			if (licenseChecking) {
-				return; // a check is already running — ignore repeat clicks
-			}
-			setLicenseCheck({ loading: true });
-			jobs.checkLicense(template.id)
-				.then((verdict) => {
-					setLicenseCheck(verdict);
-					// Advance only when the license is fine (or not required).
-					if (verdict && verdict.ok) {
-						setStep((s) => s + 1);
-					}
-					// Otherwise the banner renders and we stay on the step.
-				})
-				.catch(() => {
-					// Couldn't reach the store — fail open (server gate at Start
-					// is the real enforcement point) and advance.
-					setLicenseCheck({ required: false, ok: true, tier: '', status: 'precheck_error', code: '', message: '' });
-					setStep((s) => s + 1);
-				});
-			return;
-		}
-
 		if (step >= STEPS.length - 1) {
 			handleStart();
 			return;
@@ -791,10 +829,13 @@ export function PreviewPanel({ template, onClose }) {
 		setStep((s) => s + 1);
 	};
 
-	// The license is verified on the Next click (see `next()`), not
-	// automatically on entering the step. While that request is in flight the
-	// Next button shows a busy "Checking…" state and ignores repeat clicks.
-	const licenseChecking = !!( licenseCheck && licenseCheck.loading );
+	const licenseChecking = mayRequireLicense && (!licenseCheck || !!licenseCheck.loading);
+	const licenseBlocked = !!(
+		licenseCheck
+		&& !licenseCheck.loading
+		&& licenseCheck.required
+		&& !licenseCheck.ok
+	);
 
 	const isFirst = step === 0;
 	const isLast = step === STEPS.length - 1;
@@ -844,7 +885,7 @@ export function PreviewPanel({ template, onClose }) {
 		<div className="custstsi-wizard" role="dialog" aria-modal="true" aria-labelledby="custstsi-wizard-title">
 
 
-			<div className="custstsi-wizard__body">
+			<div className={ `custstsi-wizard__body${ previewExpanded ? ' is-preview-expanded' : '' }` }>
 				<aside className="custstsi-sidebar">
 					<header className="custstsi-sidebar__header">
 						<div className="custstsi-sidebar__title">
@@ -877,7 +918,6 @@ export function PreviewPanel({ template, onClose }) {
 										}
 										onBulkToggle={bulkToggleOptional}
 										loadingDetail={false}
-										licenseCheck={licenseCheck}
 									/>
 								)}
 								{step === 2 && (
@@ -912,10 +952,11 @@ export function PreviewPanel({ template, onClose }) {
 					</div>
 
 					<footer className="custstsi-sidebar__footer">
-						{showSteps && (
+						{showSteps && !licenseChecking && !licenseBlocked && (
 							<div className="custstsi-step-actions">
 								<Button
 									variant="tertiary"
+									className={ isFirst ? 'custstsi-step-actions__close' : undefined }
 									onClick={isFirst ? handleClose : back}
 								>
 									{isFirst
@@ -930,12 +971,10 @@ export function PreviewPanel({ template, onClose }) {
 								<Button
 									variant="primary"
 									onClick={next}
-									isBusy={starting || licenseChecking}
-									disabled={starting || licenseChecking}
+									isBusy={starting}
+									disabled={starting}
 								>
-									{licenseChecking
-										? __('Checking…', 'customify-starter-sites')
-										: isLast
+									{isLast
 											? (starting
 												? __('Starting…', 'customify-starter-sites')
 												: __('Start →', 'customify-starter-sites'))
@@ -943,6 +982,29 @@ export function PreviewPanel({ template, onClose }) {
 									}
 								</Button>
 							</div>
+						)}
+						{showSteps && licenseChecking && (
+							<>
+								<div className="custstsi-license-checking" role="status">
+									<Spinner />
+									<span>{__('Checking template access…', 'customify-starter-sites')}</span>
+								</div>
+								<div className="custstsi-step-actions">
+									<Button variant="tertiary" className="custstsi-step-actions__close" onClick={handleClose}>
+										{__('Close', 'customify-starter-sites')}
+									</Button>
+								</div>
+							</>
+						)}
+						{showSteps && licenseBlocked && (
+							<>
+								<LicenseUpsell licenseCheck={licenseCheck} />
+								<div className="custstsi-step-actions">
+									<Button variant="tertiary" className="custstsi-step-actions__close" onClick={handleClose}>
+										{__('Close', 'customify-starter-sites')}
+									</Button>
+								</div>
+							</>
 						)}
 						{showInstall && (
 							<div className="custstsi-step-actions">
@@ -956,21 +1018,105 @@ export function PreviewPanel({ template, onClose }) {
 				</aside>
 
 				<div className="custstsi-preview">
-					{iframeUrl ? (
-						<iframe
-							ref={iframeRef}
-							className="custstsi-preview__iframe"
-							src={iframeUrl}
-							title={sprintf( /* translators: %s: template title */ __('Preview of %s', 'customify-starter-sites'), title)}
-							onLoad={sendStyleToIframe}
-						/>
-					) : (
-						<div className="custstsi-preview__fallback">
-							{__('No preview URL available.', 'customify-starter-sites')}
+					<div className="custstsi-preview__toolbar" role="toolbar" aria-label={ __( 'Preview controls', 'customify-starter-sites' ) }>
+						<div className="custstsi-preview__devices">
+							{ PREVIEW_DEVICES.map( ( device ) => (
+								<Button
+									key={ device.key }
+									className={ `custstsi-preview__device${ previewDevice === device.key ? ' is-active' : '' }` }
+									icon={ device.icon }
+									label={ device.label }
+									showTooltip
+									aria-pressed={ previewDevice === device.key }
+									onClick={ () => setPreviewDevice( device.key ) }
+								/>
+							) ) }
 						</div>
-					)}
+						<Button
+							className={ `custstsi-preview__expand${ previewExpanded ? ' is-active' : '' }` }
+							icon={ resizeCornerNE }
+							label={ previewExpanded
+								? __( 'Show setup panel', 'customify-starter-sites' )
+								: __( 'Expand preview', 'customify-starter-sites' )
+							}
+							showTooltip
+							aria-pressed={ previewExpanded }
+							onClick={ () => setPreviewExpanded( ( expanded ) => ! expanded ) }
+						/>
+					</div>
+					<div className={ `custstsi-preview__viewport is-${ previewDevice }` }>
+						{ previewLoading && iframeUrl && (
+							<div
+								className="custstsi-preview__loading"
+								role="status"
+								aria-label={ __( 'Loading site preview…', 'customify-starter-sites' ) }
+							>
+								<Spinner />
+							</div>
+						) }
+						{iframeUrl ? (
+							<iframe
+								ref={iframeRef}
+								className="custstsi-preview__iframe"
+								src={iframeUrl}
+								title={sprintf( /* translators: %s: template title */ __('Preview of %s', 'customify-starter-sites'), title)}
+								onLoad={handleIframeLoad}
+							/>
+						) : (
+							<div className="custstsi-preview__fallback">
+								{__('No preview URL available.', 'customify-starter-sites')}
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
+		</div>
+	);
+}
+
+function LicenseUpsell({ licenseCheck }) {
+	const tier = String(licenseCheck?.tier || '').trim().toLowerCase();
+	const fallbackLabels = {
+		pressstudio: 'Press Studio',
+		presssuite: 'Press Suite',
+		presssuites: 'Press Suite',
+	};
+	const tierLabel = licenseCheck?.tier_label || fallbackLabels[tier] || __('Premium', 'customify-starter-sites');
+	const upsellUrl = licenseCheck?.upsell_url || '';
+
+	return (
+		<div className="custstsi-license-upsell" role="alert">
+			<LicenseBadge license={tier} />
+			<strong className="custstsi-license-upsell__title">
+				{sprintf(
+					/* translators: %s: product name, e.g. Press Studio */
+					__('Build more with %s', 'customify-starter-sites'),
+					tierLabel
+				)}
+			</strong>
+			<p className="custstsi-license-upsell__text">
+				{sprintf(
+					/* translators: %s: product name, e.g. Press Studio */
+					__('Unlock this starter site and the complete %s toolkit for faster site building.', 'customify-starter-sites'),
+					tierLabel
+				)}
+			</p>
+			{upsellUrl && (
+				<Button
+					variant="primary"
+					className="custstsi-license-upsell__button"
+					href={upsellUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					{sprintf(
+						/* translators: %s: product name, e.g. Press Studio */
+						__('Get %s', 'customify-starter-sites'),
+						tierLabel
+					)}
+					<Icon icon={externalIcon} size={16} />
+				</Button>
+			)}
 		</div>
 	);
 }
@@ -1032,7 +1178,7 @@ function StyleStep({ palettes, palette, setPalette, typography, setTypography, f
 				{__('Choose a style', 'customify-starter-sites')}
 			</h3>
 			<p className="custstsi-step__lede">
-				{__('Pick a color palette and font pair. Both apply after content is imported and can be changed later from the Customizer.', 'customify-starter-sites')}
+				{__('Choose a palette and font pair. You can change both later.', 'customify-starter-sites')}
 			</p>
 
 			<div className="custstsi-style-section">
@@ -1093,35 +1239,7 @@ function StyleStep({ palettes, palette, setPalette, typography, setTypography, f
 
 // ── Step 1 ──────────────────────────────────────────────────────────────────
 
-function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, onBulkToggle, loadingDetail, licenseCheck }) {
-	// License precheck banner for premium templates. Shown only when the check
-	// has resolved to a blocking verdict (required + not ok); a valid license
-	// stays silent. The in-flight ("checking") state lives on the Next button
-	// instead of a banner here. The banner links straight to the license input
-	// (adapter-supplied `licenseUrl`) so a bad/missing key is one click away.
-	const licenseUrl =
-		typeof window !== 'undefined' && window.customifyStarterSites
-			? window.customifyStarterSites.licenseUrl || ''
-			: '';
-	const licenseNotice = ( licenseCheck && ! licenseCheck.loading && licenseCheck.required && ! licenseCheck.ok )
-		? (
-			<div className="custstsi-license-notice is-error" role="alert">
-				<span className="custstsi-license-notice__msg">
-					{ licenseCheck.message || __( 'A valid license is required to import this template.', 'customify-starter-sites' ) }
-				</span>
-				{ licenseUrl && (
-					<a
-						className="custstsi-license-notice__link"
-						href={ licenseUrl }
-						onClick={ ( e ) => e.stopPropagation() }
-					>
-						{ __( 'Enter license key', 'customify-starter-sites' ) }
-						<Icon icon={ externalIcon } size={ 16 } />
-					</a>
-				) }
-			</div>
-		)
-		: null;
+function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, onBulkToggle, loadingDetail }) {
 
 	const renderCard = (p) => {
 		const classes = ['custstsi-plugin'];
@@ -1233,8 +1351,6 @@ function PluginsStep({ required, recommended, isChecked, onToggle, bulkLabel, on
 			<p className="custstsi-step__lede">
 				{__('Required plugins already installed are activated automatically during import. Any that aren’t installed won’t block the import — you’ll just see a warning. You can uncheck any recommended one you don’t want.', 'customify-starter-sites')}
 			</p>
-
-			{licenseNotice}
 
 			{(() => {
 				const missing = required.filter((p) => !p.installed);

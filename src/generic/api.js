@@ -99,17 +99,18 @@ export const jobs = {
 	},
 
 	/**
-	 * Precheck a template's license before import (wizard plugins step).
+	 * Precheck a template's license as soon as its preview opens.
 	 * Always resolves 200; the verdict is in the body.
 	 *
 	 * @param {number} templateId
-	 * @return {Promise<{required:boolean, ok:boolean, tier:string, status:string, code:string, message:string}>}
+	 * @param {string} license    Catalog license tier used as a UI fallback.
+	 * @return {Promise<{required:boolean, ok:boolean, tier:string, tier_label:string, upsell_url:string, status:string, code:string, message:string}>}
 	 */
-	checkLicense( templateId ) {
+	checkLicense( templateId, license = '' ) {
 		return apiFetch( {
 			path:   `${ NS }/theme/license/check`,
 			method: 'POST',
-			data:   { template_id: templateId },
+			data:   { template_id: templateId, license },
 		} );
 	},
 };

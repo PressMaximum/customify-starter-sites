@@ -13,14 +13,18 @@ import { external } from '@wordpress/icons';
 /**
  * License tag — same markup/classes as the public template library
  * (`pmtpl-license`): a plain "Press" prefix + a dark tier pill ("Studio", …).
- * `free` shows NO badge. The catalog's license casing is inconsistent
+ * `free` shows a muted text badge. The catalog's license casing is inconsistent
  * ("free"/"Free", "pressstudio"/"PressStudio"), so normalize to lower-case
  * before matching. The card stylesheet ports the library's rules verbatim.
  */
-function LicenseBadge( { license } ) {
+export function LicenseBadge( { license } ) {
 	const slug = String( license || '' ).trim().toLowerCase();
 	if ( '' === slug || 'free' === slug ) {
-		return null; // free (or unset) has no badge
+		return (
+			<span className="pmtpl-license pmtpl-license--free">
+				{ __( 'Free', 'customify-starter-sites' ) }
+			</span>
+		);
 	}
 	if ( 0 === slug.indexOf( 'press' ) ) {
 		const tier = slug.slice( 'press'.length );
