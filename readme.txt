@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: importer, demo, starter sites, templates, customify
 Requires at least: 7.0
 Tested up to: 7.1
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -65,6 +65,12 @@ Templates declare the plugins they need. Free plugins (including Blocksify) are 
 Fonts are installed through the WordPress Font Library, which was added in WordPress 6.5. On older versions the import still runs; the template simply keeps its default fonts.
 
 == Changelog ==
+
+= 1.0.2 =
+* NEW: After an import finishes, verify every plugin the template declares is active — a declared plugin that was installed but inactive (e.g. Blocksify Pro) is now switched on so the template renders faithfully.
+* IMPROVED: The plugins step activates the required Pro plugins (Customify Pro / Blocksify Pro) before checking your license, so a licensed site is no longer wrongly told to enter a key.
+* IMPROVED: Any Customify Pro / Blocksify Pro or bundle (Press Studio / Press Suites) license — including a child key from a bundle — now unlocks premium templates; accepted products are configured in one place.
+* FIXED: Blocksify is activated before Blocksify Pro, which requires it, so activation no longer fails.
 
 = 1.0.1 =
 * Unlock premium templates with a Customify Pro or Blocksify Pro license, verified at import.
