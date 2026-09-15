@@ -47,7 +47,7 @@ class Asset_Fetcher {
 	 * `''` when the manifest didn't ship them — callers MUST check before
 	 * touching the path (`Uploads_Extractor::extract('')` will fatal).
 	 *
-	 * @return array{content:string, options:string, uploads:string, dir:string}
+	 * @return array{content:string, options:string, uploads:string, dir:string, declared_plugin_slugs:string[]}
 	 *
 	 * @throws \RuntimeException When a required asset is missing or a download fails.
 	 */
@@ -105,7 +105,45 @@ class Asset_Fetcher {
 		}
 
 		$paths['dir'] = $tmp_dir;
+
+		// Every plugin the template declares, so the runner can verify at the
+		// end that each one that's present on disk ended up active (a template
+		// needs its declared plugins to render faithfully). Two catalog fields
+		// carry them: the top-level `plugins[]` list and `requirements.plugins[]`.
+		// Union them by slug; the runner still honours the wizard's skip flags.
+		$paths['declared_plugin_slugs'] = $this->declared_plugin_slugs( $res['body'] );
+
 		return $paths;
+	}
+
+	/**
+	 * Collect the directory slugs of every plugin a template declares, from
+	 * both the top-level `plugins[]` list and `requirements.plugins[]`.
+	 *
+	 * @param array<string, mixed> $body Decoded `templates/{id}` response body.
+	 * @return string[] Unique, sanitised plugin directory slugs.
+	 */
+	private function declared_plugin_slugs( array $body ): array {
+		$slugs = [];
+
+		$lists = [
+			$body['plugins'] ?? [],
+			$body['requirements']['plugins'] ?? [],
+		];
+		foreach ( $lists as $list ) {
+			if ( ! is_array( $list ) ) {
+				continue;
+			}
+			foreach ( $list as $entry ) {
+				$slug = is_array( $entry ) ? ( $entry['slug'] ?? '' ) : '';
+				$slug = sanitize_key( (string) $slug );
+				if ( '' !== $slug ) {
+					$slugs[ $slug ] = true;
+				}
+			}
+		}
+
+		return array_keys( $slugs );
 	}
 
 	public function cleanup( string $job_id ): void {
