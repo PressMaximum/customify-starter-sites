@@ -1,8 +1,8 @@
 <?php
 /*
-Plugin Name: Customify Starter Sites
-Plugin URI: https://wpcustomify.com
-Description: Browse Customify starter templates, preview them live, and import the one you love — pages, menus, plugins, color palette and typography all in place.
+Plugin Name: Starter Templates – Website Templates & Demo Import for Block Editor
+Plugin URI: https://pressmaximum.com/website-templates/
+Description: Browse website templates for the WordPress block editor, preview starter sites, choose colors and fonts, and import demo content with guided setup.
 Author: pressmaximum
 Author URI: https://pressmaximum.com/customify
 Version: 1.0.2

@@ -1,6 +1,6 @@
-=== Customify Starter Sites ===
+=== Starter Templates – Website Templates & Demo Import for Block Editor ===
 Contributors: pressmaximum
-Tags: importer, demo, starter sites, templates, customify
+Tags: starter templates, website templates, demo import, block editor, gutenberg
 Requires at least: 7.0
 Tested up to: 7.1
 Stable tag: 1.0.2
@@ -8,61 +8,135 @@ Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Browse Customify starter templates, preview them live, and import the one you love — pages, plugins, fonts, colors and options included.
+Browse website templates for the WordPress block editor, preview starter sites, choose colors and fonts, and import demo content with guided setup.
 
 == Description ==
 
-Customify Starter Sites adds a **Starter Templates** library to the Customify theme dashboard. Browse the available designs, preview any of them live in your own admin, then import the one you want — all from a guided step-by-step wizard.
+Starter Templates is a WordPress website template library for the WordPress block editor (Gutenberg), with a guided demo importer. Browse starter sites, preview their pages, choose colors and fonts, then import the content and settings you need.
 
-When you import a template, the plugin:
+The current templates use the Customify theme and Blocksify. Review each design's plugin requirements before importing.
 
-* Runs the import **in the background** with a live progress bar, so even large demos with big media libraries no longer hit PHP time limits.
-* Installs and activates the **plugins** the template needs (including Blocksify) directly from the WordPress.org plugin directory. Templates that rely on premium plugins ask you to install those first.
-* Imports **content** (pages, posts, menus, media) and applies the template's **theme options**, **color palette**, and **typography**.
-* Installs the template's **fonts** through the built-in WordPress Font Library (available on WordPress 6.5 and newer).
+[Browse Website Templates](https://pressmaximum.com/website-templates/) to explore the available designs and open their live demos. To import a starter site, open Customify → Starter Templates in your WordPress dashboard.
 
-Everything runs under the **Customify → Starter Templates** tab, integrated into the theme dashboard.
+= Find and preview a starter template =
+
+* Search by template name or keywords, and filter by category and license.
+* Open a live demo inside your admin dashboard.
+* Switch between desktop, tablet and mobile preview widths, or expand the preview area.
+* Preview premium designs before choosing a package.
+
+= Choose colors and typography =
+
+Select a color palette and a heading/body font pair before importing. The available choices include template palettes and typography where provided, plus choices supplied by Customify.
+
+Supported demos show your style choices in the live preview. The importer applies those choices to Customify and installs the selected fonts through the WordPress Font Library when available.
+
+= Review and import =
+
+The setup panel shows required and recommended plugins, including their installed and active status. You can select recommended plugins and choose whether to import demo content, widgets and Customizer settings.
+
+During import, the plugin:
+
+* Attempts to install and activate required free plugins from WordPress.org, including Blocksify.
+* Imports the template's pages, posts, media and menus when demo content is selected.
+* Applies the selected widgets and Customify settings, including the template's header, footer and layout options where supplied.
+* Runs a background import job and displays progress, completion or an error message in the setup panel.
+* Checks declared plugins after import and attempts to activate installed plugins that are still inactive, respecting your skip choices.
+
+Install any required premium plugins from your PressMaximum account before importing. The importer cannot download those plugins from WordPress.org. If a dependency is unavailable, the import can continue with a warning; features may be missing, and content for an unavailable plugin can be skipped.
+
+Use a new or staging site for your first import. Importing can replace settings and menu items, and re-importing can replace previously imported content. Back up an existing site before proceeding.
+
+= Free starter templates and premium designs =
+
+The plugin is free. Templates marked Free do not require a premium template license. Check each template's plugin requirements as well: a template's license and the licenses for its required plugins are separate.
+
+A Press Studio license key is required to import premium templates. A standalone Customify Pro or Blocksify Pro license does not include premium template access. Use the license filter to browse Free or Press Studio templates.
+
+You can still view a premium demo without access to import it. When a package is required, the setup sidebar names that package and links to [PressMaximum pricing](https://pressmaximum.com/pricing/). A configured license is checked when you open a premium preview and again when you start an import.
+
+= Customify compatibility =
+
+These starter sites are intended for the [Customify theme](https://wordpress.org/themes/customify/). The plugin integrates with its Starter Templates dashboard and applies Customify's settings, palettes and typography. Activate Customify, or a child theme based on Customify, to use this integration.
+
+Each design may require additional plugins for its blocks, shop or other content. Keep those plugins active after importing so the features used by your site remain available.
 
 == External services ==
 
-This plugin connects to the Blocksify Design Studio (PM Templates) service hosted at `https://pressmaximum.com/` to provide its template library. Only public, read-only catalog endpoints are used; no account or authentication is required.
+= PressMaximum / PM Templates =
 
-What is sent, and when:
+The plugin uses the public PM Templates catalog at https://pressmaximum.com/wp-json/pm-templates/v1/public/ to list templates, retrieve details and download their files. Public catalog browsing does not require an account or API key.
 
-* **Browsing templates.** When an administrator opens **Customify → Starter Templates**, the site requests the public template catalog and its filter facets from `https://pressmaximum.com/wp-json/pm-templates/v1/public/*` (for example `.../templates` and `.../filters`). Search text and the selected filters are sent as query parameters, together with the standard web-request information every HTTP request carries, such as the site's IP address and user agent. No personal data from your WordPress site is sent.
-* **Previewing a template.** The preview panel loads the public demo URL returned by the catalog inside an iframe so you can scroll through the design before importing. Opening a preview does not send any data from your site beyond the standard web-request information above.
-* **Importing a template.** When an administrator starts an import, the site downloads the demo assets referenced by the selected template — the content XML, an uploads archive (media), and an options file — from the URLs the catalog provides (served from the same service). Any required plugins are downloaded from the WordPress.org plugin directory (`https://wordpress.org/`), and any template fonts are fetched through the WordPress Font Library from its configured provider (Google Fonts by default).
+Requests happen at these points:
 
-The template service is provided by PressMaximum: [Terms of Service](https://pressmaximum.com/terms-and-conditions/) and [Privacy Policy](https://pressmaximum.com/privacy-policy/). Advanced users can point the plugin at a different Studio host by defining the `CUSTOMIFY_STARTER_SITES_STUDIO_URL` constant.
+* Library loading: your WordPress server requests the template list and category filters. Search, category selection and license filtering in the current library run in your browser on the downloaded list; typing in the search field does not send each search to PressMaximum. Requests may be served from the site's cache.
+* Preview setup: your server requests the selected template's details and may download its options.json file to load style choices. These requests identify the template or asset being requested.
+* Live preview: your browser loads the public demo URL supplied by the catalog in an iframe, including a timestamp query parameter used to refresh the preview. The demo receives your browser's normal request information, such as IP address and user agent, and may receive a referrer subject to browser policy. Palette and typography selections are sent to the embedded demo as CSS so compatible demos can display them.
+* Import: your server retrieves template details and downloads content data in JSON format, options.json, and uploads.zip when supplied. The archive contains the template's media files. These are inbound downloads; the importer does not upload your site's content to the catalog.
+* Premium access: when a premium preview opens, when you retry a license check, or when you start a premium import, your server may send configured license keys, read from the Customify Pro or Blocksify Pro settings, to the PressMaximum license service. Each check includes the license key, product ID, site home URL and the check_license action. No license request is sent if there is no configured key to check.
 
-== Development ==
+Server requests expose the server's IP address. WordPress's default HTTP user agent includes the WordPress version and site URL. If an advanced configuration supplies a Studio API key, the remote client sends it in the X-PMBD-Api-Key header with catalog requests and import asset downloads. This optional key is separate from premium license verification.
 
-Human-readable source and build tooling are available at [github.com/PressMaximum/customify-starter-sites](https://github.com/PressMaximum/customify-starter-sites).
+PressMaximum provides the catalog and license service. See its [Terms and Conditions](https://pressmaximum.com/terms-and-conditions/) and [Privacy Policy](https://pressmaximum.com/privacy-policy/). The CUSTOMIFY_STARTER_SITES_STUDIO_URL constant can override the catalog host; license-service configuration is separate.
+
+= WordPress.org and Google Fonts =
+
+During import, WordPress requests plugin information and downloads selected free plugin packages from WordPress.org. These requests identify the plugins being installed and include normal HTTP request information. See the [WordPress.org Privacy Policy](https://wordpress.org/about/privacy/).
+
+When the style panel opens, your browser requests font CSS from fonts.googleapis.com for the displayed font pairs, plus their font files, to render the typography samples. Applying a font pair in the live preview can trigger the same requests from the embedded demo. These requests identify font families and variants and include the browser's normal HTTP information.
+
+During font installation, your server may fetch WordPress's Google Fonts collection from s.w.org, request font CSS from fonts.googleapis.com as a fallback, and download the font files referenced by the collection or CSS, typically from fonts.gstatic.com. Requests identify the collection or requested font resources and include normal HTTP information. Successfully installed fonts are stored locally through the WordPress Font Library. See [Google's Terms of Service](https://policies.google.com/terms) and [Privacy Policy](https://policies.google.com/privacy).
 
 == Installation ==
 
-1. Install and activate the **Customify** theme.
-2. Upload the `customify-starter-sites` folder to `/wp-content/plugins/`, or install it from the **Plugins → Add New** screen.
-3. Activate the plugin through the **Plugins** screen in WordPress.
-4. Open **Customify → Starter Templates** in the WordPress admin to browse, preview, and import templates.
+1. Install and activate the Customify theme, or a Customify child theme.
+2. Install this plugin from WordPress.org, or upload the customify-starter-sites folder to /wp-content/plugins/.
+3. Activate the plugin and open Customify → Starter Templates.
+4. Browse the library and open a template to preview it.
+5. Choose a palette and typography, review plugin requirements, and select the content and settings to import. For premium templates, configure your Press Studio license key and install any required premium plugins first.
+6. Start the import and follow its progress. When it finishes, review the imported site and replace the demo content with your own.
 
 == Frequently Asked Questions ==
 
-= Do I need the Customify theme? =
+= Do I need Customify? =
 
-Yes. Starter Templates appears inside the Customify theme dashboard, and imported templates apply Customify's theme options, color palette, and typography.
+Use Customify or a Customify child theme for the template designs and dashboard integration described here. The imported theme settings are specific to Customify.
 
-= Does importing overwrite my existing content? =
+= Which editor do the templates use? =
 
-Importing adds the template's pages, posts, menus, and media to your site and applies its theme options. It is intended for new or staging sites; back up your site before importing into an established one.
+The current starter sites use the WordPress block editor (Gutenberg) with Blocksify. A template can also require plugins such as WooCommerce for its shop or other features. After importing, edit the pages and replace the demo text and images with your own.
 
-= Which plugins get installed? =
+= Are all templates free? =
 
-Templates declare the plugins they need. Free plugins (including Blocksify) are installed and activated automatically from WordPress.org during the import. Templates that require premium plugins prompt you to install those plugins yourself first.
+The library includes free and premium templates. Use the license filter to find Free or Press Studio templates. A Free label refers to template access; review the required plugins for any separate premium dependencies.
 
-= Why does the fonts step need WordPress 6.5? =
+= Can I preview a premium template without a license? =
 
-Fonts are installed through the WordPress Font Library, which was added in WordPress 6.5. On older versions the import still runs; the template simply keeps its default fonts.
+Yes. The public demo remains visible. If you do not have access to import it, the setup sidebar identifies the required package and links to PressMaximum pricing.
+
+= Do I need a license to import templates? =
+
+You can import templates marked Free without a license key. Only premium templates require a Press Studio license key. Check each template’s required plugins for any separate licenses.
+
+= What changes on an existing site? =
+
+The import adds demo content and can replace imported content, menu items, widgets and theme settings. Re-importing a template can replace edits to its previously imported content. Use a backup and test on a staging site first.
+
+= Can I choose what to import? =
+
+Yes. The setup panel has separate choices for demo content, widgets and Customizer settings, plus a selection of recommended plugins. Media follows the demo content choice. If you skip content, widgets or menus may refer to pages that have not been imported.
+
+= Which plugins are installed automatically? =
+
+The importer attempts to install and activate required free plugins from WordPress.org, including Blocksify, and the recommended plugins you select. Install required premium plugins separately before starting. If a dependency cannot be installed or activated, the import can continue with a warning and some content or features may be unavailable.
+
+= What should I check if an import stops? =
+
+Read the error shown in the setup panel. Check that your server can reach PressMaximum, the template file hosts and WordPress.org, and that required plugins can be installed and activated. Background imports also depend on WordPress cron and loopback requests. Hosting limits and download failures can still interrupt an import.
+
+== Development ==
+
+Source code and build tools are available on [GitHub](https://github.com/PressMaximum/customify-starter-sites).
 
 == Changelog ==
 
@@ -73,7 +147,7 @@ Fonts are installed through the WordPress Font Library, which was added in WordP
 * FIXED: Blocksify is activated before Blocksify Pro, which requires it, so activation no longer fails.
 
 = 1.0.1 =
-* Unlock premium templates with a Customify Pro or Blocksify Pro license, verified at import.
+* Import premium templates with a Press Studio license key, checked before import.
 
 = 1.0.0 =
 * NEW: Rebuilt starter-site importer — templates now import in the background with a live progress UI, so large sites no longer time out.
