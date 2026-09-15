@@ -301,6 +301,46 @@ class Importer_Runner {
 			) );
 			if ( $adapter ) { $adapter->after_phase( Job_Store::STATUS_APPLYING_OPTIONS, (array) $this->jobs->get( $job_id ), $this ); }
 
+			// (5b) Final plugin verification. Ensure every plugin the template
+			// declares that is present on disk ended up active — a template
+			// needs its declared plugins active to render faithfully. The
+			// install phase (2) only walks `requirements.plugins[]`; this pass
+			// also covers the catalog's top-level `plugins[]` list, and catches
+			// any declared plugin that was installed-but-inactive for any reason
+			// (e.g. a Pro plugin that was on disk but off). Wizard skip flags are
+			// still honoured — a plugin the user opted out of stays off.
+			if ( ! $this->cancelled( $job_id ) ) {
+				$declared_slugs = array_values( (array) ( $paths['declared_plugin_slugs'] ?? [] ) );
+				if ( ! empty( $declared_slugs ) ) {
+					$verify = $installer->activate_present( $declared_slugs, $plugins_skip );
+					foreach ( $verify['warnings'] as $w ) {
+						$this->jobs->warn( $job_id, $w );
+					}
+					if ( ! empty( $verify['activated'] ) ) {
+						$summary['plugins']['activated'] = array_values( array_unique( array_merge(
+							(array) ( $summary['plugins']['activated'] ?? [] ),
+							$verify['activated']
+						) ) );
+						// Re-fire init so a plugin activated only now still gets
+						// its CPTs/taxonomies registered this request. Content is
+						// already imported by this point, but options/widgets and
+						// any later adapter work still benefit, and it's a no-op
+						// when nothing new hooked in.
+						if ( did_action( 'init' ) ) {
+							// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Re-firing core init so a just-activated plugin registers before completion.
+							do_action( 'init' );
+						}
+						$this->jobs->log( $job_id, sprintf(
+							'Plugin verification: %d additional plugin(s) activated (%s).',
+							count( $verify['activated'] ),
+							implode( ', ', $verify['activated'] )
+						) );
+					} else {
+						$this->jobs->log( $job_id, 'Plugin verification: all declared plugins already active.' );
+					}
+				}
+			}
+
 			$this->jobs->set_progress( $job_id, 100 );
 
 			// (6) Cleanup + complete.

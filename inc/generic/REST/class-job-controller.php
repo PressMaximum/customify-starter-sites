@@ -110,11 +110,21 @@ class Job_Controller {
 			return new \WP_Error( 'custstsi_bad_template', 'template_id is required.', [ 'status' => 400 ] );
 		}
 
+		// Parse the wizard's plugin skip flags up front so the Pro gate can
+		// honour them when deciding which Pro plugins to auto-activate before
+		// reading the license (a skipped Pro plugin is left off).
+		$plugins_skip = ( isset( $body['plugins_skip'] ) && is_array( $body['plugins_skip'] ) )
+			? array_values( array_filter( array_map(
+				static fn( $s ) => is_string( $s ) ? sanitize_key( $s ) : '',
+				$body['plugins_skip']
+			) ) )
+			: [];
+
 		// Pro gate: a template that needs a Pro plugin (customify-pro /
 		// blocksify-pro) can only be imported once that plugin is
 		// installed. The UI already disables Import for these, but a
 		// direct API call would bypass that — re-check server-side.
-		$pro_error = $this->pro_gate_error( $template_id );
+		$pro_error = $this->pro_gate_error( $template_id, $plugins_skip );
 		if ( $pro_error instanceof \WP_Error ) {
 			return $pro_error;
 		}
@@ -156,12 +166,7 @@ class Job_Controller {
 				$config[ $key ] = (bool) $body[ $key ];
 			}
 		}
-		if ( isset( $body['plugins_skip'] ) && is_array( $body['plugins_skip'] ) ) {
-			$config['plugins_skip'] = array_values( array_filter( array_map(
-				static fn( $s ) => is_string( $s ) ? sanitize_key( $s ) : '',
-				$body['plugins_skip']
-			) ) );
-		}
+		$config['plugins_skip'] = $plugins_skip;
 		if ( isset( $body['custom_logo_id'] ) ) {
 			$config['custom_logo_id'] = max( 0, (int) $body['custom_logo_id'] );
 		}
@@ -236,26 +241,37 @@ class Job_Controller {
 	}
 
 	/**
-	 * Store item ids that unlock each premium template tier. A template whose
-	 * tier maps here imports only when a configured license key validates for
-	 * ANY one of the listed products; `free` (and any unmapped tier) needs no
-	 * license.
+	 * Template tiers that require a premium license. A template whose tier is
+	 * listed here imports only when a configured license key validates against
+	 * one of {@see LICENSE_ACCEPTED_ITEM_IDS}; `free` (and any unlisted tier)
+	 * needs no license. Add a tier here when a new premium badge ships.
 	 *
-	 *   pressstudio → 66895 (Press Studio) or 66894 (Blocksify Pro)
-	 *   presssuites → 66896 (Press Suites) or 66894 (Blocksify Pro)
-	 *
-	 * Blocksify Pro (66894) is accepted for both tiers so a Blocksify Pro
-	 * licensee can import premium templates. The `855` id in customify-pro is
-	 * the *plugin's own* license and is unrelated — a Press Studio key returns
-	 * `invalid_item_id` for it.
-	 *
-	 * @var array<string, int[]>
+	 * @var string[]
 	 */
-	private const LICENSE_TIER_ITEM_IDS = [
-		'pressstudio' => [ 66895, 66894 ],
-		'presssuite'  => [ 66896, 66894 ],
-		'presssuites' => [ 66896, 66894 ],
+	private const LICENSE_PREMIUM_TIERS = [
+		'pressstudio',
+		'presssuite',
+		'presssuites',
 	];
+
+	/**
+	 * The store product ids that unlock ANY premium template. Both bundles and
+	 * Blocksify Pro grant every premium template, so a single shared list is
+	 * checked for every premium tier — change products in ONE place here.
+	 *
+	 *   66895 = Press Studio (bundle)
+	 *   66896 = Press Suites (bundle)
+	 *   66894 = Blocksify Pro
+	 *
+	 * A child license key (e.g. Customify Pro 855 inside a bundle) still
+	 * unlocks: the store resolves it to its parent bundle on check_license, so
+	 * the child validates against its parent bundle's id in this list. The `855`
+	 * id itself is the Customify Pro plugin's own license and is intentionally
+	 * NOT listed — entitlement is decided by bundle membership, not by 855.
+	 *
+	 * @var int[]
+	 */
+	private const LICENSE_ACCEPTED_ITEM_IDS = [ 66895, 66896, 66894 ];
 
 	/**
 	 * Product metadata shown by the wizard when a premium template is locked.
@@ -311,7 +327,10 @@ class Job_Controller {
 		if ( $template_id <= 0 ) {
 			return new \WP_Error( 'custstsi_bad_template', 'template_id is required.', [ 'status' => 400 ] );
 		}
-		return new \WP_REST_Response( $this->evaluate_license( $template_id, $tier_hint ), 200 );
+		$plugins_skip = ( is_array( $body ) && isset( $body['plugins_skip'] ) && is_array( $body['plugins_skip'] ) )
+			? array_values( array_filter( array_map( 'sanitize_key', $body['plugins_skip'] ) ) )
+			: [];
+		return new \WP_REST_Response( $this->evaluate_license( $template_id, $tier_hint, $plugins_skip ), 200 );
 	}
 
 	/**
@@ -319,11 +338,12 @@ class Job_Controller {
 	 * or null when the import is allowed. Thin wrapper over
 	 * {@see evaluate_license()} so the create + precheck paths share one rule.
 	 *
-	 * @param int $template_id Studio template id.
+	 * @param int      $template_id  Studio template id.
+	 * @param string[] $plugins_skip Slugs the wizard asked to skip.
 	 * @return \WP_Error|null WP_Error when blocked, null when allowed.
 	 */
-	private function pro_gate_error( int $template_id ) {
-		$verdict = $this->evaluate_license( $template_id );
+	private function pro_gate_error( int $template_id, array $plugins_skip = [] ) {
+		$verdict = $this->evaluate_license( $template_id, '', $plugins_skip );
 		if ( ! empty( $verdict['ok'] ) ) {
 			return null;
 		}
@@ -355,11 +375,13 @@ class Job_Controller {
 	 * or the store is unreachable, never when a known-premium tier has a bad
 	 * key.
 	 *
-	 * @param int    $template_id Studio template id.
-	 * @param string $tier_hint   Catalog tier used only when remote detail is unavailable.
+	 * @param int      $template_id  Studio template id.
+	 * @param string   $tier_hint    Catalog tier used only when remote detail is unavailable.
+	 * @param string[] $plugins_skip Slugs the wizard asked to skip (so a
+	 *                               skipped Pro plugin isn't auto-activated).
 	 * @return array{required:bool, ok:bool, tier:string, tier_label:string, upsell_url:string, status:string, code:string, message:string}
 	 */
-	private function evaluate_license( int $template_id, string $tier_hint = '' ): array {
+	private function evaluate_license( int $template_id, string $tier_hint = '', array $plugins_skip = [] ): array {
 		$allow = function ( string $tier = '', string $status = 'ok', bool $required = false ): array {
 			return array_merge( [
 				'required' => $required,
@@ -372,6 +394,7 @@ class Job_Controller {
 		};
 
 		$tier = sanitize_key( $tier_hint );
+		$body = null; // Template detail; used later to find declared Pro plugins.
 		if ( $this->client instanceof Remote_Client ) {
 			$res = $this->client->get( "templates/{$template_id}" );
 			if ( is_array( $res ) && (int) ( $res['status'] ?? 0 ) >= 200 && (int) ( $res['status'] ?? 0 ) < 300 ) {
@@ -384,22 +407,40 @@ class Job_Controller {
 		}
 
 		/**
-		 * Filter the tier → store item-id map, so new premium tiers (or a
-		 * staging store's ids) can be wired without a code change.
+		 * Filter the list of tier slugs that require a premium license, so a new
+		 * premium badge can be recognised without a code change.
 		 *
-		 * @param array<string, int[]> $map  tier slug => list of accepting EDD item ids.
+		 * @param string[] $tiers Premium tier slugs.
 		 */
-		$tier_map = (array) apply_filters( 'custstsi_license_tier_item_map', self::LICENSE_TIER_ITEM_IDS );
+		$premium_tiers = (array) apply_filters( 'custstsi_license_premium_tiers', self::LICENSE_PREMIUM_TIERS );
+		$premium_tiers = array_map( 'strtolower', array_map( 'strval', $premium_tiers ) );
 
-		// Free / unmapped tiers need no license.
-		if ( '' === $tier || 'free' === $tier || empty( $tier_map[ $tier ] ) ) {
+		// Free / unlisted tiers need no license.
+		if ( '' === $tier || 'free' === $tier || ! in_array( $tier, $premium_tiers, true ) ) {
 			return $allow( $tier, 'not_required', false );
 		}
-		// A tier accepts any of one or more products; tolerate a bare int too.
-		$item_ids = array_values( array_filter( array_map( 'intval', (array) $tier_map[ $tier ] ) ) );
+
+		/**
+		 * Filter the store product ids that unlock any premium template. Both
+		 * bundles and Blocksify Pro grant every premium tier, so one shared list
+		 * is used — change accepted products in one place.
+		 *
+		 * @param int[]  $item_ids Accepting EDD product ids.
+		 * @param string $tier     The template's tier slug (for per-tier overrides).
+		 */
+		$item_ids = (array) apply_filters( 'custstsi_license_accepted_item_ids', self::LICENSE_ACCEPTED_ITEM_IDS, $tier );
+		$item_ids = array_values( array_filter( array_map( 'intval', $item_ids ) ) );
 		if ( empty( $item_ids ) ) {
 			return $allow( $tier, 'not_required', false );
 		}
+
+		// Premium tier — the Pro plugins hold the license keys. If this template
+		// declares customify-pro / blocksify-pro and either is installed but not
+		// yet active, activate it now (honouring the wizard's skip flags) BEFORE
+		// reading the keys: an inactive Pro plugin may not have surfaced its
+		// license option yet, which would make a licensed site look unlicensed
+		// and show the "enter your license key" notice by mistake.
+		$this->activate_declared_pro_plugins( $body, $plugins_skip );
 
 		// Premium tier — at least one PressMaximum license key must be
 		// configured (Customify Pro and/or Blocksify Pro).
@@ -464,6 +505,61 @@ class Job_Controller {
 			'tier_label' => sanitize_text_field( (string) ( $item['label'] ?? '' ) ),
 			'upsell_url' => esc_url_raw( (string) ( $item['url'] ?? '' ) ),
 		];
+	}
+
+	/**
+	 * Activate the Pro plugins (customify-pro / blocksify-pro) a template
+	 * declares, when installed-but-inactive and not skipped, so their license
+	 * options are available before the license gate reads them.
+	 *
+	 * Only touches plugins the template actually declares (in `plugins[]` or
+	 * `requirements.plugins[]`) AND that are recognised as Pro plugins — never a
+	 * plugin the wizard was told to skip. A no-op when nothing qualifies.
+	 *
+	 * @param mixed    $body         Decoded `templates/{id}` response body.
+	 * @param string[] $plugins_skip Wizard skip slugs.
+	 */
+	private function activate_declared_pro_plugins( $body, array $plugins_skip ): void {
+		if ( ! class_exists( '\Customify_Starter_Sites\Adapters\Customify_Adapter' )
+			|| ! class_exists( '\Customify_Starter_Sites\Steps\Plugin_Installer' ) ) {
+			return;
+		}
+
+		// Which slugs the template declares (both catalog plugin lists).
+		$declared = [];
+		if ( is_array( $body ) ) {
+			$lists = [
+				$body['plugins'] ?? [],
+				$body['requirements']['plugins'] ?? [],
+			];
+			foreach ( $lists as $list ) {
+				if ( ! is_array( $list ) ) {
+					continue;
+				}
+				foreach ( $list as $entry ) {
+					$slug = is_array( $entry ) ? sanitize_key( (string) ( $entry['slug'] ?? '' ) ) : '';
+					if ( '' !== $slug ) {
+						$declared[ $slug ] = true;
+					}
+				}
+			}
+		}
+		if ( empty( $declared ) ) {
+			return;
+		}
+
+		// Intersect with the recognised Pro plugin slugs — we only auto-activate
+		// Pro plugins here (they carry the license), nothing else.
+		$pro_slugs = \Customify_Starter_Sites\Adapters\Customify_Adapter::pro_plugin_slugs();
+		$targets   = array_values( array_filter( $pro_slugs, static function ( $slug ) use ( $declared ) {
+			return isset( $declared[ $slug ] );
+		} ) );
+		if ( empty( $targets ) ) {
+			return;
+		}
+
+		$installer = new \Customify_Starter_Sites\Steps\Plugin_Installer();
+		$installer->activate_present( $targets, $plugins_skip );
 	}
 
 	/**

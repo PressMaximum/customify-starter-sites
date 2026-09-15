@@ -40,6 +40,9 @@ class Plugin_Installer {
 	/** Slug of the baseline plugin always force-installed before any template applies. */
 	private const BLOCKSIFY_SLUG = 'blocksify';
 
+	/** Blocksify Pro — refuses to activate unless {@see BLOCKSIFY_SLUG} is active first. */
+	private const BLOCKSIFY_PRO_SLUG = 'blocksify-pro';
+
 	/**
 	 * Ecosystem tooling that must never be installed on a demo site, even when a
 	 * source site ran it and the manifest lists it. `pm-submitter` is the
@@ -219,6 +222,114 @@ class Plugin_Installer {
 			'source' => $source ?: 'unknown',
 			'reason' => $reason,
 		];
+	}
+
+	/**
+	 * Final verification pass — activate every declared plugin that is present
+	 * on disk but still inactive.
+	 *
+	 * Runs after the main import phases so that any plugin the template declares
+	 * (in `plugins[]` or `requirements.plugins[]`) which is installed but, for
+	 * whatever reason, not yet active gets switched on — a template needs its
+	 * declared plugins active to render faithfully. Plugins the wizard asked to
+	 * skip are left untouched (the user opted out), and missing plugins are not
+	 * installed here (that's the install phase's job) — this pass only flips
+	 * present-but-inactive ones on.
+	 *
+	 * @param string[] $slugs        Declared plugin directory slugs to verify.
+	 * @param string[] $plugins_skip Slugs the wizard asked to skip.
+	 *
+	 * @return array{activated:string[], warnings:string[]}
+	 */
+	public function activate_present( array $slugs, array $plugins_skip = [] ): array {
+		$result = [
+			'installed' => [], // Unused here; kept so activate()'s signature is happy.
+			'activated' => [],
+			'warnings'  => [],
+		];
+
+		$slugs = array_values( array_unique( array_filter( array_map( 'strval', $slugs ), 'strlen' ) ) );
+		if ( empty( $slugs ) ) {
+			return [ 'activated' => [], 'warnings' => [] ];
+		}
+
+		// Dependency ordering: Blocksify Pro refuses to activate unless the free
+		// Blocksify block library is active first. Whenever blocksify-pro is in
+		// the set, make sure blocksify is activated before it — prepend it (a
+		// caller that passes only Pro slugs, e.g. the license precheck, wouldn't
+		// otherwise carry the free dependency). De-dupe keeps it single.
+		if ( in_array( self::BLOCKSIFY_PRO_SLUG, $slugs, true ) && ! in_array( self::BLOCKSIFY_SLUG, $slugs, true ) ) {
+			array_unshift( $slugs, self::BLOCKSIFY_SLUG );
+		} elseif ( in_array( self::BLOCKSIFY_PRO_SLUG, $slugs, true ) ) {
+			// Both present — ensure the free one is ordered first.
+			$slugs = array_values( array_diff( $slugs, [ self::BLOCKSIFY_SLUG ] ) );
+			array_unshift( $slugs, self::BLOCKSIFY_SLUG );
+		}
+
+		$this->ensure_admin_loaded();
+
+		$skip_set = array_flip( $plugins_skip );
+		// Blocksify is the baseline block library — never leave it off, even if
+		// a skip flag slipped through (mirrors install_and_activate()).
+		unset( $skip_set[ self::BLOCKSIFY_SLUG ] );
+
+		// Keep the phase headless — some plugins redirect to a setup wizard on
+		// activation; a Location header here would kill the worker mid-run.
+		$suppress_redirect = static function () {
+			return false;
+		};
+		add_filter( 'wp_redirect', $suppress_redirect, PHP_INT_MAX );
+
+		try {
+			foreach ( $slugs as $slug ) {
+				if ( isset( $skip_set[ $slug ] ) ) {
+					continue; // User opted out.
+				}
+
+				$file = $this->locate_plugin_file( $slug );
+				if ( '' === $file ) {
+					continue; // Not installed — install phase already warned if needed.
+				}
+
+				if ( is_plugin_active( $file ) ) {
+					continue; // Already on.
+				}
+
+				$this->activate( $slug, $file, $result );
+			}
+		} finally {
+			remove_filter( 'wp_redirect', $suppress_redirect, PHP_INT_MAX );
+		}
+
+		return [
+			'activated' => $result['activated'],
+			'warnings'  => $result['warnings'],
+		];
+	}
+
+	/**
+	 * Resolve a plugin directory slug to its main file path relative to the
+	 * plugins dir, or '' when the plugin isn't installed.
+	 *
+	 * Tries the canonical `slug/slug.php` first (covers ~95% of plugins), then
+	 * falls back to scanning `get_plugins()` for any file under `slug/`.
+	 */
+	private function locate_plugin_file( string $slug ): string {
+		$canonical = "{$slug}/{$slug}.php";
+		if ( file_exists( WP_PLUGIN_DIR . '/' . $canonical ) ) {
+			return $canonical;
+		}
+
+		if ( ! function_exists( 'get_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		foreach ( array_keys( (array) get_plugins() ) as $plugin_file ) {
+			if ( strpos( (string) $plugin_file, $slug . '/' ) === 0 ) {
+				return (string) $plugin_file;
+			}
+		}
+
+		return '';
 	}
 
 	// ----------------------------------------------------------------------
