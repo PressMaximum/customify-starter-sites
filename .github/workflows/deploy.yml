@@ -1,0 +1,155 @@
+name: Deploy to WordPress.org
+
+# Only publishing a stable GitHub Release can write to WordPress.org.
+# Manual runs build the complete 10up dry-run package without SVN credentials.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: starter-templates-wordpress-org-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Build and dry-run package
+    if: github.event_name != 'release' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 9
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Validate release metadata and artwork
+        id: metadata
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: node scripts/validate-release.cjs
+      - name: Require released commit on master
+        if: github.event_name == 'release'
+        run: |
+          git fetch --quiet origin master
+          git merge-base --is-ancestor HEAD origin/master || {
+            echo 'Release commit must be reachable from master.' >&2
+            exit 1
+          }
+      - name: Install locked dependencies and build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+          node --test tests/release.test.cjs
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          git ls-files -z '*.php' | xargs -0 -n 1 php -l
+      - name: Stage listing images only
+        run: |
+          mkdir -p dist/wordpress-org-assets
+          cp .wordpress-org/banner-1544x500.png .wordpress-org/banner-772x250.png dist/wordpress-org-assets/
+          cp .wordpress-org/icon-256x256.png .wordpress-org/icon-128x128.png dist/wordpress-org-assets/
+      # A unique non-published SVN tag forces 10up through the full copy path.
+      # These placeholders satisfy this pinned action's initial env checks;
+      # public SVN checkout does not authenticate and dry-run never commits.
+      - name: Exercise 10up without publishing
+        id: preflight
+        uses: 10up/action-wordpress-plugin-deploy@54bd289b8525fd23a5c365ec369185f2966529c2
+        with:
+          generate-zip: true
+          dry-run: true
+        env:
+          SVN_USERNAME: dry-run
+          SVN_PASSWORD: dry-run
+          SLUG: customify-starter-sites
+          VERSION: ${{ steps.metadata.outputs.version }}-dry-run-${{ github.run_id }}-${{ github.run_attempt }}
+          ASSETS_DIR: dist/wordpress-org-assets
+      - name: Validate actual 10up archive
+        env:
+          ZIP_PATH: ${{ steps.preflight.outputs.zip-path }}
+          PLUGIN_VERSION: ${{ steps.metadata.outputs.version }}
+        run: python3 scripts/validate-release-zip.py "$ZIP_PATH" "$PLUGIN_VERSION"
+      - name: Retain validated package and listing images
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wordpress-org-preflight-${{ github.run_id }}
+          path: |
+            customify-starter-sites.zip
+            dist/wordpress-org-assets/
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: Publish validated package and artwork
+    needs: preflight
+    if: github.event_name == 'release' && !github.event.release.prerelease
+    # A fresh hosted runner isolates SVN state from the preflight action.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check WordPress.org credentials
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+        run: |
+          if [[ -z "$SVN_USERNAME" || -z "$SVN_PASSWORD" ]]; then
+            echo 'Configure SVN_USERNAME and SVN_PASSWORD in repository Actions secrets.' >&2
+            exit 1
+          fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: wordpress-org-preflight-${{ github.run_id }}
+          path: release-input
+      - name: Revalidate and extract the approved runtime archive
+        env:
+          PLUGIN_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          python3 scripts/validate-release-zip.py release-input/customify-starter-sites.zip "$PLUGIN_VERSION"
+          mkdir -p "$RUNNER_TEMP/starter-templates-package"
+          unzip -q release-input/customify-starter-sites.zip -d "$RUNNER_TEMP/starter-templates-package"
+          sudo apt-get update -qq
+          sudo apt-get install -y subversion
+          # 10up exits successfully on an existing tag; fail here instead of
+          # attaching an old SVN archive while reporting a new deployment.
+          svn ls --non-interactive https://plugins.svn.wordpress.org/customify-starter-sites/tags/ > "$RUNNER_TEMP/starter-templates-tags.txt"
+          if grep -Fxq "$PLUGIN_VERSION/" "$RUNNER_TEMP/starter-templates-tags.txt"; then
+            echo "WordPress.org version $PLUGIN_VERSION already exists; publish a new version." >&2
+            exit 1
+          fi
+      - name: Deploy runtime, readme and listing images
+        id: deploy
+        uses: 10up/action-wordpress-plugin-deploy@54bd289b8525fd23a5c365ec369185f2966529c2
+        with:
+          generate-zip: true
+          dry-run: false
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: customify-starter-sites
+          VERSION: ${{ needs.preflight.outputs.version }}
+          BUILD_DIR: ${{ runner.temp }}/starter-templates-package/customify-starter-sites
+          ASSETS_DIR: release-input/dist/wordpress-org-assets
+      - name: Validate final archive
+        env:
+          ZIP_PATH: ${{ steps.deploy.outputs.zip-path }}
+          PLUGIN_VERSION: ${{ needs.preflight.outputs.version }}
+        run: python3 scripts/validate-release-zip.py "$ZIP_PATH" "$PLUGIN_VERSION"
+      - name: Attach production ZIP to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          ZIP_PATH: ${{ steps.deploy.outputs.zip-path }}
+        run: gh release upload "$RELEASE_TAG" "$ZIP_PATH" --clobber

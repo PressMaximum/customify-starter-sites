@@ -21,3 +21,8 @@ npm-debug.log
 # wp-deploy-cli secrets
 .env
 .env.*
+
+# Local listing reviews and Python release-check caches
+/review/
+__pycache__/
+*.pyc
