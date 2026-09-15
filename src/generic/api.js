@@ -102,15 +102,20 @@ export const jobs = {
 	 * Precheck a template's license as soon as its preview opens.
 	 * Always resolves 200; the verdict is in the body.
 	 *
-	 * @param {number} templateId
-	 * @param {string} license    Catalog license tier used as a UI fallback.
+	 * `pluginsSkip` is sent so the server can auto-activate any declared Pro
+	 * plugin that's installed-but-inactive (and not skipped) before reading the
+	 * license — an inactive Pro plugin can hide its license option otherwise.
+	 *
+	 * @param {number}   templateId
+	 * @param {string}   [license]     Catalog license tier used as a UI fallback.
+	 * @param {string[]} [pluginsSkip] Slugs the user opted out of.
 	 * @return {Promise<{required:boolean, ok:boolean, tier:string, tier_label:string, upsell_url:string, status:string, code:string, message:string}>}
 	 */
-	checkLicense( templateId, license = '' ) {
+	checkLicense( templateId, license = '', pluginsSkip = [] ) {
 		return apiFetch( {
 			path:   `${ NS }/theme/license/check`,
 			method: 'POST',
-			data:   { template_id: templateId, license },
+			data:   { template_id: templateId, license, plugins_skip: pluginsSkip },
 		} );
 	},
 };

@@ -40,6 +40,9 @@ class Plugin_Installer {
 	/** Slug of the baseline plugin always force-installed before any template applies. */
 	private const BLOCKSIFY_SLUG = 'blocksify';
 
+	/** Blocksify Pro — refuses to activate unless {@see BLOCKSIFY_SLUG} is active first. */
+	private const BLOCKSIFY_PRO_SLUG = 'blocksify-pro';
+
 	/**
 	 * Ecosystem tooling that must never be installed on a demo site, even when a
 	 * source site ran it and the manifest lists it. `pm-submitter` is the
@@ -248,6 +251,19 @@ class Plugin_Installer {
 		$slugs = array_values( array_unique( array_filter( array_map( 'strval', $slugs ), 'strlen' ) ) );
 		if ( empty( $slugs ) ) {
 			return [ 'activated' => [], 'warnings' => [] ];
+		}
+
+		// Dependency ordering: Blocksify Pro refuses to activate unless the free
+		// Blocksify block library is active first. Whenever blocksify-pro is in
+		// the set, make sure blocksify is activated before it — prepend it (a
+		// caller that passes only Pro slugs, e.g. the license precheck, wouldn't
+		// otherwise carry the free dependency). De-dupe keeps it single.
+		if ( in_array( self::BLOCKSIFY_PRO_SLUG, $slugs, true ) && ! in_array( self::BLOCKSIFY_SLUG, $slugs, true ) ) {
+			array_unshift( $slugs, self::BLOCKSIFY_SLUG );
+		} elseif ( in_array( self::BLOCKSIFY_PRO_SLUG, $slugs, true ) ) {
+			// Both present — ensure the free one is ordered first.
+			$slugs = array_values( array_diff( $slugs, [ self::BLOCKSIFY_SLUG ] ) );
+			array_unshift( $slugs, self::BLOCKSIFY_SLUG );
 		}
 
 		$this->ensure_admin_loaded();
