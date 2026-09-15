@@ -4,7 +4,7 @@ The listing uses the Starter Templates name, a new page-layout logo, a neutral l
 
 ## Directory assets
 
-Upload these PNGs to the plugin's SVN assets directory when publishing the approved artwork:
+Publishing a stable GitHub Release runs the 10up workflow, which uploads these PNGs to the plugin's SVN assets directory alongside the runtime release. See [release instructions](../docs/RELEASING.md).
 
 | File | Dimensions |
 | --- | --- |
@@ -17,7 +17,7 @@ The icons have slightly rounded corners with transparency outside the shape. sta
 
 screenshot-provenance.json records the original public image URLs, source hashes, crop rectangles and placement for all six catalog screenshots. Image hashes refer to the original downloaded WebP files, not to the final PNG crops. All screenshot pixels are source-derived; the blank background was recolored using built-in Imagegen. The initial logo concept was generated and then reconstructed as editable vector geometry.
 
-The plugin slug, text domain, runtime APIs and version are unchanged. This directory and local review artifacts are excluded from runtime packages. This change does not publish assets to SVN or create a release.
+The plugin slug, text domain, runtime APIs and version are unchanged. This directory and local review artifacts are excluded from runtime packages. Manual workflow runs are dry runs and do not publish assets or create releases.
 
 ## Copy and compatibility
 

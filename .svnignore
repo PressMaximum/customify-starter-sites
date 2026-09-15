@@ -28,3 +28,6 @@ README.md
 release.sh
 .wordpress-org
 review
+scripts
+tests
+docs

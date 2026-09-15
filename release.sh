@@ -316,7 +316,7 @@ RSYNC_EXCLUDES=(
 	'--exclude=Makefile'
 )
 
-rsync -a "${RSYNC_EXCLUDES[@]}" "${PLUGIN_DIR}/" "${DEST}/"
+rsync -a --exclude-from="${PLUGIN_DIR}/.distignore" "${RSYNC_EXCLUDES[@]}" "${PLUGIN_DIR}/" "${DEST}/"
 
 # WordPress “Upload Plugin” expects exactly one root folder in the zip: ${PLUGIN_SLUG}/...
 rm -f "${ZIP_PATH}"
