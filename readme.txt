@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: starter templates, website templates, demo import, block editor, gutenberg
 Requires at least: 7.0
 Tested up to: 7.1
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -139,6 +139,9 @@ Read the error shown in the setup panel. Check that your server can reach PressM
 Source code and build tools are available on [GitHub](https://github.com/PressMaximum/customify-starter-sites).
 
 == Changelog ==
+
+= 1.0.3 =
+* FIXED: Sections that show hand-picked products or posts (for example a "bestsellers" or featured row) rendered "No posts found" after import. The importer now remaps the pinned item IDs to the newly imported ones, so these sections display their intended products and posts.
 
 = 1.0.2 =
 * NEW: After an import finishes, verify every plugin the template declares is active — a declared plugin that was installed but inactive (e.g. Blocksify Pro) is now switched on so the template renders faithfully.
