@@ -1,0 +1,140 @@
+[
+  {
+    "id": 66098,
+    "title": "Outfit",
+    "slug": "outfit",
+    "license": "free",
+    "catalog_url": "https://pressmaximum.com/wp-json/pm-templates/v1/public/templates/66098",
+    "screenshot_url": "https://pressmaximum.com/wp-content/uploads/2026/08/outfit-homepage-womens-sportswear-woocommerce-template.webp",
+    "demo_url": "https://demos.pressmaximum.com/outfit/",
+    "file": "outfit.webp",
+    "sha256": "693b699c91f5a14f2e87f70dde8d398d53f49987545cda3f8ec7ec8edd470856",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 1376,
+      "height": 861
+    },
+    "placement": {
+      "x": 646,
+      "y": 299,
+      "width": 270,
+      "height": 169
+    }
+  },
+  {
+    "id": 66049,
+    "title": "ÉLANE",
+    "slug": "elane",
+    "license": "pressstudio",
+    "catalog_url": "https://pressmaximum.com/wp-json/pm-templates/v1/public/templates/66049",
+    "screenshot_url": "https://pressmaximum.com/wp-content/uploads/2026/08/elane-homepage-botanical-skincare-woocommerce-template.webp",
+    "demo_url": "https://demos.pressmaximum.com/elane/",
+    "file": "elane.webp",
+    "sha256": "a13fb7da74984fe7159bc85fed5c9d85dd5498b13675905f6e0a90491aefedce",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 1440,
+      "height": 1307
+    },
+    "placement": {
+      "x": 646,
+      "y": 38,
+      "width": 270,
+      "height": 245
+    }
+  },
+  {
+    "id": 65712,
+    "title": "Norelle",
+    "slug": "norelle",
+    "license": "pressstudio",
+    "catalog_url": "https://pressmaximum.com/wp-json/pm-templates/v1/public/templates/65712",
+    "screenshot_url": "https://pressmaximum.com/wp-content/uploads/2026/08/norelle-homepage-fitness-equipment-woocommerce-template.webp",
+    "demo_url": "https://demos.pressmaximum.com/norelle/",
+    "file": "norelle.webp",
+    "sha256": "29eb5d79cf8164d59b110bd1b754ab617ef2605a731bc9e66f48a4cf9170a85b",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 1440,
+      "height": 1413
+    },
+    "placement": {
+      "x": 932,
+      "y": 213,
+      "width": 270,
+      "height": 265
+    }
+  },
+  {
+    "id": 65608,
+    "title": "Riverside Physio",
+    "slug": "riverside-physio",
+    "license": "free",
+    "catalog_url": "https://pressmaximum.com/wp-json/pm-templates/v1/public/templates/65608",
+    "screenshot_url": "https://pressmaximum.com/wp-content/uploads/2026/07/riverside-physio-homepage-physiotherapy-clinic-wordpress-template-1.webp",
+    "demo_url": "https://demos.pressmaximum.com/riverside-physio/",
+    "file": "riverside-physio.webp",
+    "sha256": "8663f8eec40525abeb3f2176ed658864c03c97ee785e90357f366606da19dca5",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 1376,
+      "height": 892
+    },
+    "placement": {
+      "x": 932,
+      "y": 22,
+      "width": 270,
+      "height": 175
+    }
+  },
+  {
+    "id": 65547,
+    "title": "Pip & Pebble",
+    "slug": "pip-pebble",
+    "license": "PressStudio",
+    "catalog_url": "https://pressmaximum.com/wp-json/pm-templates/v1/public/templates/65547",
+    "screenshot_url": "https://pressmaximum.com/wp-content/uploads/2026/08/pip-pebble-homepage-kids-clothing-woocommerce-template.webp",
+    "demo_url": "https://demos.pressmaximum.com/pip-pebble/",
+    "file": "pip-pebble.webp",
+    "sha256": "dec41bbc76674b62cf96fce25124f05401551a1908b9be89bbb39b176d0277ba",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 1440,
+      "height": 1333
+    },
+    "placement": {
+      "x": 1218,
+      "y": 52,
+      "width": 270,
+      "height": 250
+    }
+  },
+  {
+    "id": 65413,
+    "title": "Fallow",
+    "slug": "fallow",
+    "license": "Free",
+    "catalog_url": "https://pressmaximum.com/wp-json/pm-templates/v1/public/templates/65413",
+    "screenshot_url": "https://pressmaximum.com/wp-content/uploads/2026/08/fallow-homepage-clothing-store-woocommerce-template.webp",
+    "demo_url": "https://demos.pressmaximum.com/fallow/",
+    "file": "fallow.webp",
+    "sha256": "c41ba07c78283c493de2169df0a19438df26bd5dd475539765e589f6ece77a3c",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 1440,
+      "height": 853
+    },
+    "placement": {
+      "x": 1218,
+      "y": 318,
+      "width": 270,
+      "height": 160
+    }
+  }
+]

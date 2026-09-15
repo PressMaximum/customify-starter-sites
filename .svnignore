@@ -26,3 +26,5 @@ composer.lock
 phpcs.xml
 README.md
 release.sh
+.wordpress-org
+review
