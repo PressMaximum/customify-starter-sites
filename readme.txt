@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: starter templates, website templates, demo import, block editor, gutenberg
 Requires at least: 7.0
 Tested up to: 7.1
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -139,6 +139,12 @@ Read the error shown in the setup panel. Check that your server can reach PressM
 Source code and build tools are available on [GitHub](https://github.com/PressMaximum/customify-starter-sites).
 
 == Changelog ==
+
+= 1.0.4 =
+* UPDATED: Rename the plugin to Starter Templates – Website Templates & Demo Import for Block Editor.
+* UPDATED: Refresh the WordPress.org description, tags, installation instructions and FAQs, with a direct link to browse website templates.
+* CLARIFIED: Templates marked Free can be imported without a license key; premium template access is described separately.
+* UPDATED: Add a new Starter Templates logo, rounded icons and banners featuring six real website designs on a light gray background.
 
 = 1.0.3 =
 * FIXED: Sections that show hand-picked products or posts (for example a "bestsellers" or featured row) rendered "No posts found" after import. The importer now remaps the pinned item IDs to the newly imported ones, so these sections display their intended products and posts.
