@@ -716,6 +716,47 @@ class Content_Importer {
 			);
 		}
 
+		// (e) Query-block post-selection lists → remap ANY post ref (not just
+		// attachments). Blocks that pin specific posts/products by id — e.g.
+		// `blocksify/content-loop` and `core/query` with
+		// `"queryParams":{"include":[177,96]}` / `"postIn"` / `"exclude"` — bake
+		// the SOURCE post ids into the block JSON, and the submitter doesn't
+		// convert them to `{{ref:post:N}}`. Without a rewrite those ids point at
+		// posts that don't exist on the destination, so the loop renders nothing
+		// ("No posts found"). Unlike (d) these ids are products/pages/posts, so
+		// we build a full post-pair map and only touch the specific list keys —
+		// a broad `"id":N` rewrite here would corrupt unrelated attrs.
+		$post_pairs = array();
+		foreach ( $ref_map as $ref => $new_id ) {
+			if ( 0 !== strpos( (string) $ref, 'post:' ) ) {
+				continue;
+			}
+			$old_id = (int) substr( (string) $ref, 5 );
+			$new_id = (int) $new_id;
+			if ( $old_id > 0 && $new_id > 0 && $old_id !== $new_id ) {
+				$post_pairs[ $old_id ] = $new_id;
+			}
+		}
+		if ( ! empty( $post_pairs ) ) {
+			$remap_list = static function ( array $m ) use ( $post_pairs ): string {
+				$key       = $m[1]; // include | exclude | postIn
+				$rewritten = preg_replace_callback(
+					'/\d+/',
+					static function ( array $n ) use ( $post_pairs ): string {
+						$src = (int) $n[0];
+						return isset( $post_pairs[ $src ] ) ? (string) $post_pairs[ $src ] : $n[0];
+					},
+					$m[2]
+				);
+				return '"' . $key . '":[' . $rewritten . ']';
+			};
+			$value = (string) preg_replace_callback(
+				'/"(include|exclude|postIn)"\s*:\s*\[([^\]]*)\]/',
+				$remap_list,
+				$value
+			);
+		}
+
 		return $value;
 	}
 
