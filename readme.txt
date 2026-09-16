@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: starter templates, website templates, demo import, block editor, gutenberg
 Requires at least: 7.0
 Tested up to: 7.1
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -139,6 +139,9 @@ Read the error shown in the setup panel. Check that your server can reach PressM
 Source code and build tools are available on [GitHub](https://github.com/PressMaximum/customify-starter-sites).
 
 == Changelog ==
+
+= 1.0.5 =
+* FIXED: A "shop by category" or similar row that lists specific product categories could show the wrong items (or none) after import. Category and product IDs pinned in a block are now remapped separately to the newly imported ones, so both product rows and category rows display their intended items.
 
 = 1.0.4 =
 * UPDATED: Rename the plugin to Starter Templates – Website Templates & Demo Import for Block Editor.
