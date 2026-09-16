@@ -716,48 +716,86 @@ class Content_Importer {
 			);
 		}
 
-		// (e) Query-block post-selection lists → remap ANY post ref (not just
-		// attachments). Blocks that pin specific posts/products by id — e.g.
-		// `blocksify/content-loop` and `core/query` with
-		// `"queryParams":{"include":[177,96]}` / `"postIn"` / `"exclude"` — bake
-		// the SOURCE post ids into the block JSON, and the submitter doesn't
-		// convert them to `{{ref:post:N}}`. Without a rewrite those ids point at
-		// posts that don't exist on the destination, so the loop renders nothing
-		// ("No posts found"). Unlike (d) these ids are products/pages/posts, so
-		// we build a full post-pair map and only touch the specific list keys —
-		// a broad `"id":N` rewrite here would corrupt unrelated attrs.
-		$post_pairs = array();
-		foreach ( $ref_map as $ref => $new_id ) {
-			if ( 0 !== strpos( (string) $ref, 'post:' ) ) {
-				continue;
-			}
-			$old_id = (int) substr( (string) $ref, 5 );
-			$new_id = (int) $new_id;
-			if ( $old_id > 0 && $new_id > 0 && $old_id !== $new_id ) {
-				$post_pairs[ $old_id ] = $new_id;
-			}
-		}
-		if ( ! empty( $post_pairs ) ) {
-			$remap_list = static function ( array $m ) use ( $post_pairs ): string {
-				$key       = $m[1]; // include | exclude | postIn
-				$rewritten = preg_replace_callback(
-					'/\d+/',
-					static function ( array $n ) use ( $post_pairs ): string {
-						$src = (int) $n[0];
-						return isset( $post_pairs[ $src ] ) ? (string) $post_pairs[ $src ] : $n[0];
-					},
-					$m[2]
-				);
-				return '"' . $key . '":[' . $rewritten . ']';
-			};
+		// (e) Query-block selection lists → remap the pinned IDs.
+		//
+		// Blocks that pin specific items by id — `blocksify/content-loop` and
+		// `core/query` with `"queryParams":{"include":[177,96]}` / `"postIn"` /
+		// `"exclude"` — bake the SOURCE site's ids into the block JSON, and the
+		// submitter doesn't convert them to `{{ref:…}}`. Without a rewrite those
+		// ids point at items that don't exist on the destination and the loop
+		// renders nothing ("No posts found").
+		//
+		// CRITICAL: a content-loop with `"queryEntity":"terms"` pins TERM ids
+		// (e.g. a product_cat list), not post ids. Remapping those with the post
+		// map would silently point them at unrelated posts. So we split the map
+		// by entity and rewrite each block's list with the correct one — post
+		// map by default, term map when the block queries terms. Each block's
+		// JSON is handled as a unit so `queryEntity` and its `include` stay
+		// paired; `core/query` is always posts.
+		$post_pairs = $this->build_ref_pairs( $ref_map, 'post' );
+		$term_pairs = $this->build_ref_pairs( $ref_map, 'term' );
+
+		if ( ! empty( $post_pairs ) || ! empty( $term_pairs ) ) {
+			// The attrs object is matched with a recursive sub-pattern (?2) so
+			// nested braces in content-loop's deep JSON stay balanced — a plain
+			// `\{.*?\}` would stop at the first inner `}` and truncate the block.
 			$value = (string) preg_replace_callback(
-				'/"(include|exclude|postIn)"\s*:\s*\[([^\]]*)\]/',
-				$remap_list,
+				'/<!--\s*wp:(blocksify\/content-loop|core\/query)\s*(\{(?:[^{}]++|(?2))*\})\s*-->/s',
+				function ( array $m ) use ( $post_pairs, $term_pairs ): string {
+					$attrs = $m[2];
+					$is_terms = 'blocksify/content-loop' === $m[1]
+						&& preg_match( '/"queryEntity"\s*:\s*"terms"/', $attrs );
+					$pairs = $is_terms ? $term_pairs : $post_pairs;
+					if ( empty( $pairs ) ) {
+						return $m[0];
+					}
+					$attrs = (string) preg_replace_callback(
+						'/"(include|exclude|postIn)"\s*:\s*\[([^\]]*)\]/',
+						static function ( array $mm ) use ( $pairs ): string {
+							$rewritten = preg_replace_callback(
+								'/\d+/',
+								static function ( array $n ) use ( $pairs ): string {
+									$src = (int) $n[0];
+									return isset( $pairs[ $src ] ) ? (string) $pairs[ $src ] : $n[0];
+								},
+								$mm[2]
+							);
+							return '"' . $mm[1] . '":[' . $rewritten . ']';
+						},
+						$attrs
+					);
+					return '<!-- wp:' . $m[1] . ' ' . $attrs . ' -->';
+				},
 				$value
 			);
 		}
 
 		return $value;
+	}
+
+	/**
+	 * Build an `old_id => new_id` map from $ref_map for a single ref kind
+	 * ('post' or 'term'), skipping identity and invalid pairs.
+	 *
+	 * @param array<string,int> $ref_map
+	 * @param string            $kind 'post' or 'term'.
+	 * @return array<int,int>
+	 */
+	private function build_ref_pairs( array $ref_map, string $kind ): array {
+		$prefix = $kind . ':';
+		$len    = strlen( $prefix );
+		$pairs  = array();
+		foreach ( $ref_map as $ref => $new_id ) {
+			if ( 0 !== strpos( (string) $ref, $prefix ) ) {
+				continue;
+			}
+			$old_id = (int) substr( (string) $ref, $len );
+			$new_id = (int) $new_id;
+			if ( $old_id > 0 && $new_id > 0 && $old_id !== $new_id ) {
+				$pairs[ $old_id ] = $new_id;
+			}
+		}
+		return $pairs;
 	}
 
 	/**
