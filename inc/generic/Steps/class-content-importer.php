@@ -831,10 +831,11 @@ class Content_Importer {
 	 * Only a fixed allowlist of keys hold post/term ids; every other numeric
 	 * attribute (columns, perPage, fontSize, width, …) is left untouched.
 	 *
-	 *   POST ids  — include / exclude / postIn (unless the block queries terms),
-	 *               formId (a blocksify_form post), ref (a wp_navigation post).
-	 *   TERM ids  — terms (a taxQuery clause), and include / exclude / postIn
-	 *               when the block's queryEntity is "terms".
+	 *   POST ids  — include / exclude / postIn / parent / parentExclude (unless
+	 *               the block queries terms), formId (a blocksify_form post),
+	 *               ref (a wp_navigation post).
+	 *   TERM ids  — terms (a taxQuery clause), and include / exclude / postIn /
+	 *               parent / parentExclude when the block's queryEntity is "terms".
 	 *
 	 * @param array<int,array> $blocks     Parsed blocks (by reference).
 	 * @param array<int,int>   $post_pairs old post id => new local id.
@@ -873,7 +874,18 @@ class Content_Importer {
 		$list_pairs = $in_terms ? $term_pairs : $post_pairs;
 
 		foreach ( $attrs as $key => &$val ) {
-			if ( 'include' === $key || 'exclude' === $key || 'postIn' === $key ) {
+			// content-loop queryParams id lists (Blocksify_Cl_Query::pass_through):
+			//   include/exclude       → post__in / post__not_in
+			//   postIn                → post__in (legacy key)
+			//   parent/parentExclude  → post_parent__in / post_parent__not_in
+			// All follow the block's entity — post ids for a posts loop, term ids
+			// for a queryEntity=terms loop (where `parent` is the term parent).
+			// `author`/`authorExclude` map to USER ids, which the importer doesn't
+			// remap, so they're intentionally left out.
+			if (
+				'include' === $key || 'exclude' === $key || 'postIn' === $key
+				|| 'parent' === $key || 'parentExclude' === $key
+			) {
 				$this->remap_id_list( $val, $list_pairs, $changed );
 			} elseif ( 'terms' === $key ) {
 				// taxQuery clause term ids — always terms.
