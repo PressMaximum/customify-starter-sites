@@ -64,8 +64,9 @@ class Content_Importer {
 		$site_url  = untrailingslashit( home_url( '/' ) );
 		$overwrite = ! empty( $opts['overwrite_existing'] );
 
-		$ref_map  = [];
-		$warnings = [];
+		$ref_map           = [];
+		$imported_post_ids = [];
+		$warnings          = [];
 		$counts   = [
 			'terms'       => 0,
 			'posts'       => 0,
@@ -119,7 +120,31 @@ class Content_Importer {
 				if ( $id > 0 ) {
 					$ref_map[ (string) $post['ref'] ] = $id;
 					$counts['posts']++;
+					$imported_post_ids[] = $id;
 				}
+			}
+		}
+
+		// (2.6) Second-pass query-block remap. A block can pin an item (product,
+		// post, category) that is imported AFTER the block's own post — pass 1
+		// rewrote the block against an incomplete ref_map, so those forward
+		// references kept their source ids. Now that every post + term is in
+		// ref_map, re-run the query-block remap over each imported post's content
+		// and save only when it actually changed. Idempotent for ids already
+		// remapped in pass 1.
+		foreach ( $imported_post_ids as $local_id ) {
+			$current = get_post_field( 'post_content', $local_id );
+			if ( '' === $current || false === strpos( $current, 'wp:' ) ) {
+				continue;
+			}
+			$remapped = $this->remap_query_block_ids( $current, $ref_map );
+			if ( $remapped !== $current ) {
+				wp_update_post(
+					array(
+						'ID'           => $local_id,
+						'post_content' => $remapped,
+					)
+				);
 			}
 		}
 
@@ -427,8 +452,18 @@ class Content_Importer {
 		if ( ! empty( $att['metadata'] ) && is_array( $att['metadata'] ) ) {
 			update_post_meta( $id, '_wp_attachment_metadata', $att['metadata'] );
 		} elseif ( file_exists( $full_path ) ) {
+			// wp_generate_attachment_metadata() lives in image.php, but for a
+			// VIDEO/AUDIO file it calls wp_read_video_metadata() /
+			// wp_read_audio_metadata(), which live in media.php. In an admin
+			// request media.php is already loaded; in the cron/REST worker that
+			// runs the import it is NOT, so a video attachment fatals with
+			// "undefined function wp_read_video_metadata()" and the job dies
+			// mid-run. Load both admin includes so every mime type is covered.
 			if ( ! function_exists( 'wp_generate_attachment_metadata' ) ) {
 				require_once ABSPATH . 'wp-admin/includes/image.php';
+			}
+			if ( ! function_exists( 'wp_read_video_metadata' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/media.php';
 			}
 			$metadata = wp_generate_attachment_metadata( $id, $full_path );
 			if ( is_array( $metadata ) && ! empty( $metadata ) ) {
@@ -716,61 +751,166 @@ class Content_Importer {
 			);
 		}
 
-		// (e) Query-block selection lists → remap the pinned IDs.
-		//
-		// Blocks that pin specific items by id — `blocksify/content-loop` and
-		// `core/query` with `"queryParams":{"include":[177,96]}` / `"postIn"` /
-		// `"exclude"` — bake the SOURCE site's ids into the block JSON, and the
-		// submitter doesn't convert them to `{{ref:…}}`. Without a rewrite those
-		// ids point at items that don't exist on the destination and the loop
-		// renders nothing ("No posts found").
-		//
-		// CRITICAL: a content-loop with `"queryEntity":"terms"` pins TERM ids
-		// (e.g. a product_cat list), not post ids. Remapping those with the post
-		// map would silently point them at unrelated posts. So we split the map
-		// by entity and rewrite each block's list with the correct one — post
-		// map by default, term map when the block queries terms. Each block's
-		// JSON is handled as a unit so `queryEntity` and its `include` stay
-		// paired; `core/query` is always posts.
-		$post_pairs = $this->build_ref_pairs( $ref_map, 'post' );
-		$term_pairs = $this->build_ref_pairs( $ref_map, 'term' );
-
-		if ( ! empty( $post_pairs ) || ! empty( $term_pairs ) ) {
-			// The attrs object is matched with a recursive sub-pattern (?2) so
-			// nested braces in content-loop's deep JSON stay balanced — a plain
-			// `\{.*?\}` would stop at the first inner `}` and truncate the block.
-			$value = (string) preg_replace_callback(
-				'/<!--\s*wp:(blocksify\/content-loop|core\/query)\s*(\{(?:[^{}]++|(?2))*\})\s*-->/s',
-				function ( array $m ) use ( $post_pairs, $term_pairs ): string {
-					$attrs = $m[2];
-					$is_terms = 'blocksify/content-loop' === $m[1]
-						&& preg_match( '/"queryEntity"\s*:\s*"terms"/', $attrs );
-					$pairs = $is_terms ? $term_pairs : $post_pairs;
-					if ( empty( $pairs ) ) {
-						return $m[0];
-					}
-					$attrs = (string) preg_replace_callback(
-						'/"(include|exclude|postIn)"\s*:\s*\[([^\]]*)\]/',
-						static function ( array $mm ) use ( $pairs ): string {
-							$rewritten = preg_replace_callback(
-								'/\d+/',
-								static function ( array $n ) use ( $pairs ): string {
-									$src = (int) $n[0];
-									return isset( $pairs[ $src ] ) ? (string) $pairs[ $src ] : $n[0];
-								},
-								$mm[2]
-							);
-							return '"' . $mm[1] . '":[' . $rewritten . ']';
-						},
-						$attrs
-					);
-					return '<!-- wp:' . $m[1] . ' ' . $attrs . ' -->';
-				},
-				$value
-			);
-		}
+		// (e) Query-block selection lists (include/exclude/postIn) are remapped in
+		// a dedicated SECOND pass in import() — not here. Those lists can pin an
+		// item imported after this post (forward reference), and remapping both
+		// here and in the second pass would double-remap: a pass-1 result id that
+		// happens to equal another source id would be rewritten again. Doing it
+		// once, after ref_map is complete, keeps each id a single source→local hop.
 
 		return $value;
+	}
+
+	/**
+	 * Remap the pinned IDs inside query blocks' selection lists.
+	 *
+	 * Blocks that pin specific items by id — `blocksify/content-loop` and
+	 * `core/query` with `"queryParams":{"include":[177,96]}` / `"postIn"` /
+	 * `"exclude"` — bake the SOURCE site's ids into the block JSON, and the
+	 * submitter doesn't convert them to `{{ref:…}}`. Without a rewrite those ids
+	 * point at items that don't exist on the destination and the loop renders
+	 * nothing ("No posts found").
+	 *
+	 * CRITICAL: a content-loop with `"queryEntity":"terms"` pins TERM ids (e.g.
+	 * a product_cat list), not post ids. Remapping those with the post map would
+	 * silently point them at unrelated posts. So we split the map by entity and
+	 * rewrite each block's list with the correct one — post map by default, term
+	 * map when the block queries terms. Each block's JSON is handled as a unit so
+	 * `queryEntity` and its `include` stay paired; `core/query` is always posts.
+	 *
+	 * Runs both inline (pass 1, while a post is inserted) and in a second pass
+	 * once every post is in `ref_map` — a block can pin an item that is imported
+	 * AFTER the block's own post (forward reference), which pass 1 alone can't
+	 * resolve. Idempotent: an id already remapped isn't a key in the pair map, so
+	 * a second run leaves it unchanged.
+	 *
+	 * @param string             $value   Block markup.
+	 * @param array<string,int>  $ref_map Completed (or partial) ref map.
+	 * @return string
+	 */
+	private function remap_query_block_ids( string $value, array $ref_map ): string {
+		if ( '' === $value || false === strpos( $value, 'wp:' ) ) {
+			return $value;
+		}
+
+		// Exclude attachments from the post map: a query block pins products /
+		// posts / pages, never media. Keeping attachments in would let a pinned
+		// id that the template didn't export (but which collides with an imported
+		// attachment's source id) get rewritten to that attachment.
+		$post_pairs = $this->build_ref_pairs( $ref_map, 'post', true );
+		$term_pairs = $this->build_ref_pairs( $ref_map, 'term' );
+		if ( empty( $post_pairs ) && empty( $term_pairs ) ) {
+			return $value;
+		}
+
+		// Parse the block markup into a real tree and walk each block's decoded
+		// attributes as PHP arrays, instead of pattern-matching the raw JSON.
+		// Gutenberg's own parser handles nested braces, escaping and arrays
+		// correctly, so `queryParams.taxQuery[].terms` (a nested list) and deep
+		// structures are reachable by key rather than by fragile regex.
+		$blocks   = parse_blocks( $value );
+		$changed  = false;
+		$this->walk_blocks_remap( $blocks, $post_pairs, $term_pairs, $changed );
+
+		return $changed ? serialize_blocks( $blocks ) : $value;
+	}
+
+	/**
+	 * Recursively remap the ID-bearing attributes of a parsed block tree.
+	 *
+	 * Only a fixed allowlist of keys hold post/term ids; every other numeric
+	 * attribute (columns, perPage, fontSize, width, …) is left untouched.
+	 *
+	 *   POST ids  — include / exclude / postIn (unless the block queries terms),
+	 *               formId (a blocksify_form post), ref (a wp_navigation post).
+	 *   TERM ids  — terms (a taxQuery clause), and include / exclude / postIn
+	 *               when the block's queryEntity is "terms".
+	 *
+	 * @param array<int,array> $blocks     Parsed blocks (by reference).
+	 * @param array<int,int>   $post_pairs old post id => new local id.
+	 * @param array<int,int>   $term_pairs old term id => new local id.
+	 * @param bool             $changed    Set true when any id was rewritten.
+	 */
+	private function walk_blocks_remap( array &$blocks, array $post_pairs, array $term_pairs, bool &$changed ): void {
+		foreach ( $blocks as &$block ) {
+			if ( ! empty( $block['attrs'] ) && is_array( $block['attrs'] ) ) {
+				$this->remap_attrs( $block['attrs'], $post_pairs, $term_pairs, $changed );
+			}
+			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
+				$this->walk_blocks_remap( $block['innerBlocks'], $post_pairs, $term_pairs, $changed );
+			}
+		}
+		unset( $block );
+	}
+
+	/**
+	 * Remap ID-bearing keys within one block's decoded attributes, recursing
+	 * into nested arrays/objects (queryParams, taxQuery, …).
+	 *
+	 * @param array<string,mixed> $attrs      Attributes (by reference).
+	 * @param array<int,int>      $post_pairs
+	 * @param array<int,int>      $term_pairs
+	 * @param bool                $changed
+	 * @param bool                $in_terms   True once inside a queryEntity=terms scope.
+	 */
+	private function remap_attrs( array &$attrs, array $post_pairs, array $term_pairs, bool &$changed, bool $in_terms = false ): void {
+		// A content-loop that queries terms makes its include/exclude/postIn hold
+		// term ids; carry that down into this attrs level (and nested queryParams).
+		if ( isset( $attrs['queryEntity'] ) && 'terms' === $attrs['queryEntity'] ) {
+			$in_terms = true;
+		}
+
+		$list_pairs = $in_terms ? $term_pairs : $post_pairs;
+
+		foreach ( $attrs as $key => &$val ) {
+			if ( 'include' === $key || 'exclude' === $key || 'postIn' === $key ) {
+				$this->remap_id_list( $val, $list_pairs, $changed );
+			} elseif ( 'terms' === $key ) {
+				// taxQuery clause term ids — always terms.
+				$this->remap_id_list( $val, $term_pairs, $changed );
+			} elseif ( 'formId' === $key || 'ref' === $key ) {
+				$this->remap_id_scalar( $val, $post_pairs, $changed );
+			} elseif ( is_array( $val ) ) {
+				$this->remap_attrs( $val, $post_pairs, $term_pairs, $changed, $in_terms );
+			}
+		}
+		unset( $val );
+	}
+
+	/**
+	 * Remap a scalar id (or numeric string) in place via $pairs.
+	 *
+	 * @param mixed          $val     By reference.
+	 * @param array<int,int> $pairs
+	 * @param bool           $changed
+	 */
+	private function remap_id_scalar( &$val, array $pairs, bool &$changed ): void {
+		if ( is_int( $val ) || ( is_string( $val ) && ctype_digit( $val ) ) ) {
+			$src = (int) $val;
+			if ( isset( $pairs[ $src ] ) ) {
+				$val     = is_string( $val ) ? (string) $pairs[ $src ] : $pairs[ $src ];
+				$changed = true;
+			}
+		}
+	}
+
+	/**
+	 * Remap every id in a list attribute in place via $pairs. Accepts a real
+	 * array of ids (the usual decoded shape) and leaves non-list values alone.
+	 *
+	 * @param mixed          $val     By reference.
+	 * @param array<int,int> $pairs
+	 * @param bool           $changed
+	 */
+	private function remap_id_list( &$val, array $pairs, bool &$changed ): void {
+		if ( ! is_array( $val ) ) {
+			$this->remap_id_scalar( $val, $pairs, $changed );
+			return;
+		}
+		foreach ( $val as &$item ) {
+			$this->remap_id_scalar( $item, $pairs, $changed );
+		}
+		unset( $item );
 	}
 
 	/**
@@ -779,9 +919,14 @@ class Content_Importer {
 	 *
 	 * @param array<string,int> $ref_map
 	 * @param string            $kind 'post' or 'term'.
+	 * @param bool              $exclude_attachments Drop pairs whose local post is
+	 *        an attachment. Query blocks (products/posts/pages) never pin an
+	 *        attachment, so excluding them prevents a source id that happens to
+	 *        collide with an imported attachment's source id from rewriting a
+	 *        product/post list entry into an attachment id.
 	 * @return array<int,int>
 	 */
-	private function build_ref_pairs( array $ref_map, string $kind ): array {
+	private function build_ref_pairs( array $ref_map, string $kind, bool $exclude_attachments = false ): array {
 		$prefix = $kind . ':';
 		$len    = strlen( $prefix );
 		$pairs  = array();
@@ -791,9 +936,13 @@ class Content_Importer {
 			}
 			$old_id = (int) substr( (string) $ref, $len );
 			$new_id = (int) $new_id;
-			if ( $old_id > 0 && $new_id > 0 && $old_id !== $new_id ) {
-				$pairs[ $old_id ] = $new_id;
+			if ( $old_id <= 0 || $new_id <= 0 || $old_id === $new_id ) {
+				continue;
 			}
+			if ( $exclude_attachments && 'attachment' === get_post_type( $new_id ) ) {
+				continue;
+			}
+			$pairs[ $old_id ] = $new_id;
 		}
 		return $pairs;
 	}
