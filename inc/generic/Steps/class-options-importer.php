@@ -109,6 +109,26 @@ class Options_Importer {
 	];
 
 	/**
+	 * Theme-mod keys whose value is a raw attachment ID (a logo variant) that
+	 * the submitter exports as a bare integer — no `_ref`, no `{{ref:…}}`. These
+	 * must be remapped through the attachment pair map or they keep the source
+	 * site's id and point at the wrong (or a non-image) post after import — e.g.
+	 * Riverside's `header_logo_retina`/`header_logo_tran` landed on a
+	 * blocksify_styleclass, breaking the header logo. Config numbers that happen
+	 * to be integers (container_width, header_main_sticky, …) are NOT listed, so
+	 * they are never touched.
+	 *
+	 * @var string[]
+	 */
+	private const ATTACHMENT_ID_MOD_KEYS = [
+		'custom_logo',
+		'header_logo',
+		'header_logo_retina',
+		'header_logo_tran',
+		'header_logo_tran_retina',
+	];
+
+	/**
 	 * Resolve the denylist, applying the
 	 * `custstsi_denied_option_keys` filter so adapters can
 	 * extend it. Cached per-call via the static. Always returns a
@@ -305,6 +325,12 @@ class Options_Importer {
 		// `site_icon` because a stale source id paints a broken favicon — but a
 		// bundle ships the favicon attachment in content.json, so the `_ref`
 		// resolves here to the freshly imported local id.
+		//
+		// When the template ships NO favicon, clear site_icon instead of leaving
+		// it: a value left over from a previous import (or the site's old setup)
+		// otherwise survives and shows the wrong favicon — and a stale id can even
+		// point at a non-image post. Clearing makes the imported site match the
+		// template, which simply has no custom favicon.
 		$icon_ref = ! empty( $core['site_icon_ref'] )
 			? (string) $core['site_icon_ref']
 			: ( isset( $core['site_icon'] ) && (int) $core['site_icon'] > 0 ? 'post:' . (int) $core['site_icon'] : '' );
@@ -316,6 +342,9 @@ class Options_Importer {
 				/* translators: %s: the unresolved site-icon ref (e.g. post:99) */
 				$warnings[] = sprintf( __( 'Site icon %s not found in import — skipped.', 'customify-starter-sites' ), $icon_ref );
 			}
+		} else {
+			// Template declares no favicon — clear any stale value.
+			delete_option( 'site_icon' );
 		}
 		return true;
 	}
@@ -383,14 +412,25 @@ class Options_Importer {
 	 *   - legacy studio : `{option}_ref` = "post:N"  (ref_map string lookup)
 	 *   - PM Submitter   : `{option}`    = raw source page id
 	 *
-	 * A `0` / absent value means "no page assigned" — left untouched. An
-	 * unresolved id warns rather than writing a stale source id that would
-	 * point at the wrong (or no) page locally.
+	 * An EXPLICIT `0` (the key is present and 0, e.g. `page_for_posts: 0` for a
+	 * template with no blog page) writes 0 — it must clear whatever value already
+	 * sits in the option, otherwise a stale id left over from a previous site
+	 * setup (or a re-import) survives. In particular, if `page_for_posts` keeps a
+	 * stale id equal to `page_on_front`, WordPress renders the blog on the front
+	 * page and the home layout disappears. An ABSENT key means "not specified" and
+	 * is left untouched. An unresolved id warns rather than writing a stale source
+	 * id that would point at the wrong (or no) page locally.
 	 *
 	 * @param array<string,mixed> $core
 	 * @param array<string,int>   $ref_map
 	 */
 	private function apply_core_page( string $option, array $core, array $ref_map, array &$warnings ): void {
+		// Explicit 0 (present + zero) → clear the option so no stale id survives.
+		if ( ! isset( $core[ $option . '_ref' ] ) && array_key_exists( $option, $core ) && 0 === (int) $core[ $option ] ) {
+			update_option( $option, 0 );
+			return;
+		}
+
 		$local = 0;
 		if ( ! empty( $core[ $option . '_ref' ] ) ) {
 			$local = (int) ( $ref_map[ (string) $core[ $option . '_ref' ] ] ?? 0 );
@@ -441,9 +481,50 @@ class Options_Importer {
 				$resolved_val = $this->remap_nav_menu_locations( $resolved_val, $warnings );
 			}
 
+			// Logo-variant keys carry a bare attachment id (no `_ref`), so
+			// resolve_refs() leaves them untouched. Remap through the attachment
+			// pair map here, or the header logo (retina / transparent variants)
+			// points at the source id — often a non-image post — after import.
+			if ( in_array( $resolved_key, self::ATTACHMENT_ID_MOD_KEYS, true ) && is_numeric( $resolved_val ) ) {
+				$resolved_val = $this->remap_attachment_id( (int) $resolved_val, $warnings, $resolved_key );
+			}
+
 			set_theme_mod( $resolved_key, $resolved_val );
 		}
 		return true;
+	}
+
+	/**
+	 * Remap a raw attachment id (a logo variant) from its source id to the
+	 * freshly imported local id via {@see $attachment_pairs}. When the source id
+	 * already resolves to a local attachment (unchanged on this site) it is kept;
+	 * an id that maps to no attachment is dropped to 0 so the theme falls back to
+	 * "no logo" rather than rendering a broken/wrong image.
+	 *
+	 * @param int    $src      Source attachment id.
+	 * @param array  $warnings By reference.
+	 * @param string $key      Mod key (for the warning message).
+	 * @return int Local attachment id, or 0 when unresolved.
+	 */
+	private function remap_attachment_id( int $src, array &$warnings, string $key ): int {
+		if ( $src <= 0 ) {
+			return 0;
+		}
+		if ( isset( $this->attachment_pairs[ $src ] ) ) {
+			return (int) $this->attachment_pairs[ $src ];
+		}
+		// Source id unchanged on this site (already a local attachment).
+		$existing = get_post( $src );
+		if ( $existing && 'attachment' === $existing->post_type ) {
+			return $src;
+		}
+		$warnings[] = sprintf(
+			/* translators: 1: theme_mod key, 2: source attachment id */
+			__( 'Logo attachment for %1$s (source id %2$d) not found in import — cleared.', 'customify-starter-sites' ),
+			$key,
+			$src
+		);
+		return 0;
 	}
 
 	/**

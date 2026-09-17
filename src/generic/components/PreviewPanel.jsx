@@ -521,11 +521,13 @@ export function PreviewPanel({ template, onClose }) {
 	//
 	// Auto-preselects the template's saved `customify_active_palette` so
 	// users see what the template ships with the moment the Style step
-	// opens. Only when:
-	//   1. The active id exists in either the template's bundled list
+	// opens. Preference order (only while the user hasn't picked manually —
+	// `setPalette(prev || id)` preserves a manual override on re-render):
+	//   1. The saved active id, when it exists in the template's bundled list
 	//      OR the host's preset/user list (no orphan highlights).
-	//   2. The user hasn't picked manually yet (`setPalette(prev || id)`
-	//      preserves manual overrides on re-render).
+	//   2. Otherwise the FIRST available palette — the Style step must always
+	//      have a palette selected, so a template with no active id (or an
+	//      unmatched one) still lands on a valid choice, never an empty one.
 	useEffect(() => {
 		setTemplateCustomPalettes([]);
 		const list = extractTemplateCustomPalettes(themeOptions.customify_color_palettes);
@@ -533,15 +535,20 @@ export function PreviewPanel({ template, onClose }) {
 			setTemplateCustomPalettes(list);
 		}
 
-		const activeId = themeOptions.customify_active_palette;
-		if (typeof activeId !== 'string' || activeId === '') {
+		// Candidate list in the same order the picker shows: template-bundled
+		// palettes first, then host presets / user-saved.
+		const available = mergePalettesById(getPalettes(), list);
+		if (!available.length) {
 			return undefined;
 		}
-		const inTemplate = list.some((p) => p.id === activeId);
-		const inHost = (getPalettes() || []).some((p) => p.id === activeId);
-		if (inTemplate || inHost) {
-			setPalette((prev) => prev || activeId);
-		}
+
+		const activeId = themeOptions.customify_active_palette;
+		const activeValid = typeof activeId === 'string'
+			&& activeId !== ''
+			&& available.some((p) => p.id === activeId);
+
+		const fallbackId = activeValid ? activeId : available[0].id;
+		setPalette((prev) => prev || fallbackId);
 		return undefined;
 	}, [template.id, themeOptions.customify_color_palettes, themeOptions.customify_active_palette]);
 

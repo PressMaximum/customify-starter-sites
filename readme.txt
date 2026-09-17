@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: starter templates, website templates, demo import, block editor, gutenberg
 Requires at least: 7.0
 Tested up to: 7.1
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -139,6 +139,13 @@ Read the error shown in the setup panel. Check that your server can reach PressM
 Source code and build tools are available on [GitHub](https://github.com/PressMaximum/customify-starter-sites).
 
 == Changelog ==
+
+= 1.0.6 =
+* FIXED: Some templates lost their layout after import — the front page showed the blog instead of the home page — when the template has no separate blog page. The posts-page setting is now cleared so the home page shows correctly.
+* FIXED: The header logo (including retina and transparent-header variants) and the site favicon could be wrong or missing after import. Logo image IDs are now remapped to the imported images, and a leftover favicon from a previous import is cleared when the template ships none.
+* FIXED: An import that included a video could stop partway with an error. Video and audio files now import reliably.
+* FIXED: Rows that filter products by category (for example a "just arrived" row) could show nothing after import; the category filter is now remapped to the imported categories.
+* IMPROVED: The Choose a style step always starts with a color palette selected, even when the template has no saved palette.
 
 = 1.0.5 =
 * FIXED: A "shop by category" or similar row that lists specific product categories could show the wrong items (or none) after import. Category and product IDs pinned in a block are now remapped separately to the newly imported ones, so both product rows and category rows display their intended items.
