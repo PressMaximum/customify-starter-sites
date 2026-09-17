@@ -139,11 +139,21 @@ class Content_Importer {
 			}
 			$remapped = $this->remap_query_block_ids( $current, $ref_map );
 			if ( $remapped !== $current ) {
+				// wp_slash is REQUIRED: wp_update_post() runs wp_unslash() on the
+				// array, so an unslashed value loses every backslash. Blocksify
+				// serialises a hyphen in an attribute as a JSON - escape, so a
+				// CSS-var value arrives with backslashes ("var(--wp...")".
+				// Dropping them turns it into "var(u002d...)", the var name breaks,
+				// and the styling silently vanishes (Fallow's hero background-color
+				// and heading colour did exactly this).
 				wp_update_post(
-					array(
-						'ID'           => $local_id,
-						'post_content' => $remapped,
-					)
+					wp_slash(
+						array(
+							'ID'           => $local_id,
+							'post_content' => $remapped,
+						)
+					),
+					true
 				);
 			}
 		}
