@@ -45,12 +45,24 @@ class Plugin_Installer {
 
 	/**
 	 * Ecosystem tooling that must never be installed on a demo site, even when a
-	 * source site ran it and the manifest lists it. `pm-submitter` is the
-	 * contributor-side submit tool and `customify-starter-sites` is this
-	 * importer itself — neither belongs to a template's runtime. Extend via the
-	 * `custstsi_excluded_plugin_slugs` filter.
+	 * source site ran it and the manifest lists it — none of these belong to a
+	 * template's runtime:
+	 *   - `pm-submitter`             — the contributor-side submit tool.
+	 *   - `customify-starter-sites`  — this importer itself.
+	 *   - `pm-git-updater`           — the internal git-based plugin updater.
+	 *   - `pm-demoops`               — demo-site operations tooling.
+	 *   - `mcp-adapter`              — the MCP/agent adapter dev tool.
+	 * Listing them here drops them from the install loop silently (no
+	 * "not installed — skipped" warning for tooling a demo never needed).
+	 * Extend via the `custstsi_excluded_plugin_slugs` filter.
 	 */
-	private const EXCLUDED_SLUGS = [ 'pm-submitter', 'customify-starter-sites' ];
+	private const EXCLUDED_SLUGS = [
+		'pm-submitter',
+		'customify-starter-sites',
+		'pm-git-updater',
+		'pm-demoops',
+		'mcp-adapter',
+	];
 
 	/**
 	 * @param string                                            $options_json_path
