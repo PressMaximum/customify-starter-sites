@@ -145,6 +145,7 @@ Source code and build tools are available on [GitHub](https://github.com/PressMa
 * FIXED: The header logo (including retina and transparent-header variants) and the site favicon could be wrong or missing after import. Logo image IDs are now remapped to the imported images, and a leftover favicon from a previous import is cleared when the template ships none.
 * FIXED: An import that included a video could stop partway with an error. Video and audio files now import reliably.
 * FIXED: Rows that filter products by category (for example a "just arrived" row) could show nothing after import; the category filter is now remapped to the imported categories.
+* FIXED: Some blocks lost their custom layout CSS after import — a centred block could shift left, or an image could stop filling its column and leave a gap below it. A block's saved custom CSS is now preserved during import.
 * IMPROVED: The Choose a style step always starts with a color palette selected, even when the template has no saved palette.
 
 = 1.0.5 =

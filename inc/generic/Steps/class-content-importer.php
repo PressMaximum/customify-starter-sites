@@ -75,6 +75,22 @@ class Content_Importer {
 			'menu_items'  => 0,
 		];
 
+		// The import runs in a cron/REST worker with no logged-in user, so
+		// current_user_can('unfiltered_html') is false. On save, WordPress core's
+		// `wp_strip_custom_css_from_blocks` (a `content_save_pre` filter) then
+		// strips a block's custom CSS — e.g. a Blocksify container's
+		// `"style":{"css":"margin: 0 auto;"}` that centres the "spare knee patch"
+		// block — so the layout breaks. The template content is trusted (an admin
+		// started this job against our own catalog), so suspend that filter for the
+		// duration and always restore it in the finally, even on a throw. Its
+		// priority (8) is captured so it goes back exactly where it was.
+		$strip_css_prio = has_filter( 'content_save_pre', 'wp_strip_custom_css_from_blocks' );
+		if ( false !== $strip_css_prio ) {
+			remove_filter( 'content_save_pre', 'wp_strip_custom_css_from_blocks', $strip_css_prio );
+		}
+
+		try {
+
 		if ( $overwrite && ! empty( $parsed['posts'] ) ) {
 			$this->wipe_existing_by_refs( array_column( $parsed['posts'], 'ref' ) );
 		}
@@ -189,6 +205,12 @@ class Content_Importer {
 			if ( $applied > 0 ) {
 				$counts['menus']++;
 				$counts['menu_items'] += $applied;
+			}
+		}
+
+		} finally {
+			if ( false !== $strip_css_prio ) {
+				add_filter( 'content_save_pre', 'wp_strip_custom_css_from_blocks', $strip_css_prio );
 			}
 		}
 
