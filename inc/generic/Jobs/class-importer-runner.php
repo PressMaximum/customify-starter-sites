@@ -164,6 +164,7 @@ class Importer_Runner {
 			$template_id = (int) ( $config['template_id'] ?? 0 );
 			$summary['template_id'] = $template_id;
 			$paths       = $fetcher->download( $template_id, $job_id );
+			$customify_modules = $options->prepare_customify_modules( $paths['options'] ?? '', $config );
 			$this->jobs->set_progress( $job_id, 10 );
 			$this->jobs->log( $job_id, 'Assets downloaded.' );
 			if ( $adapter ) { $adapter->after_phase( Job_Store::STATUS_FETCHING, (array) $this->jobs->get( $job_id ), $this ); }
@@ -222,6 +223,7 @@ class Importer_Runner {
 			// not posts/terms) BEFORE re-firing init, so WooCommerce registers their
 			// `pa_*` taxonomies from the table on init — otherwise Content_Importer's
 			// taxonomy_exists() gate drops every product's attribute term.
+			$customify_modules_loaded = $customify_modules && $options->load_customify_modules();
 			$woo_attrs_added = $this->import_woo_attributes( $paths['options'] ?? '', $job_id );
 
 			// Plugins just activated in THIS request loaded their files (so their
@@ -233,7 +235,7 @@ class Importer_Runner {
 			// `_form`, …) with a "post_type not registered" warning. Re-fire `init`
 			// once so those registrations — plus WooCommerce's pa_* taxonomies from the
 			// attribute table above — run before content import.
-			if ( ( ! empty( $plugin_result['activated'] ) || $woo_attrs_added ) && did_action( 'init' ) ) {
+			if ( ( ! empty( $plugin_result['activated'] ) || $woo_attrs_added || $customify_modules_loaded ) && did_action( 'init' ) ) {
 				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Re-firing WordPress core's init so CPTs/taxonomies from just-activated plugins register before content import.
 				do_action( 'init' );
 				$this->jobs->log( $job_id, 'Re-ran init to register post types / taxonomies for imported data.' );

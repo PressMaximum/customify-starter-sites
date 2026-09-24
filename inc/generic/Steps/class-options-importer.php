@@ -388,6 +388,32 @@ class Options_Importer {
 		return $set > 0;
 	}
 
+	/** Module switches must precede Pro activation and content/CPT import. */
+	public function prepare_customify_modules( string $path, array $config ): bool {
+		if ( empty( $config['replace_settings'] ) || ( isset( $config['import_options'] ) && ! $config['import_options'] ) || 'customify' !== get_template() || ! is_readable( $path ) ) {
+			return false;
+		}
+		$parsed = json_decode( (string) file_get_contents( $path ), true );
+		if ( ! is_array( $parsed ) || 'customify' !== ( $parsed['theme']['template'] ?? '' ) ) { return false; }
+		$modules = $parsed['plugin_options']['customify_modules'] ?? null;
+		if ( ! is_array( $modules ) ) { return false; }
+		update_option( 'customify_modules', $modules );
+		return true;
+	}
+
+	/** Load only newly enabled registered modules, preserving existing hooks. */
+	public function load_customify_modules(): bool {
+		if ( ! function_exists( 'Customify_Pro' ) ) { return false; }
+		$pro = Customify_Pro();
+		$loaded = false;
+		foreach ( $pro->modules as $class => $definition ) {
+			if ( isset( $pro->installed_modules[ $class ] ) || ! $pro->is_enabled_module( $class ) ) { continue; }
+			$pro->installed_modules[ $class ] = method_exists( $class, 'get_instance' ) ? $class::get_instance() : new $class();
+			$loaded = true;
+		}
+		return $loaded;
+	}
+
 	/** Restore the icon library, including legacy bundles with typed icons only. */
 	private function apply_customify_icons( array $parsed, array &$warnings ): bool {
 		if ( 'customify' !== get_template() || 'customify' !== ( $parsed['theme']['template'] ?? '' ) ) {
