@@ -1,6 +1,6 @@
 {
 	"name": "customify-starter-sites",
-	"version": "1.0.8",
+	"version": "1.0.9",
 	"private": true,
 	"description": "Build pipeline for the Customify Starter Sites importer React UI.",
 	"scripts": {

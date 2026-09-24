@@ -826,9 +826,6 @@ class Content_Importer {
 		// attachment's source id) get rewritten to that attachment.
 		$post_pairs = $this->build_ref_pairs( $ref_map, 'post', true );
 		$term_pairs = $this->build_ref_pairs( $ref_map, 'term' );
-		if ( empty( $post_pairs ) && empty( $term_pairs ) ) {
-			return $value;
-		}
 
 		// Parse the block markup into a real tree and walk each block's decoded
 		// attributes as PHP arrays, instead of pattern-matching the raw JSON.
@@ -861,6 +858,17 @@ class Content_Importer {
 	 */
 	private function walk_blocks_remap( array &$blocks, array $post_pairs, array $term_pairs, bool &$changed ): void {
 		foreach ( $blocks as &$block ) {
+			// WC 10.x derives this CSS/interactive root class from saved HTML.
+			// Newer WC exports can omit that wrapper and restore it at render time.
+			// className is a supported block attribute and works with both versions.
+			if ( 'woocommerce/product-filters' === ( $block['blockName'] ?? '' ) ) {
+				$classes = preg_split( '/\s+/', trim( (string) ( $block['attrs']['className'] ?? '' ) ), -1, PREG_SPLIT_NO_EMPTY );
+				if ( ! in_array( 'wc-block-product-filters', $classes, true ) ) {
+					$classes[] = 'wc-block-product-filters';
+					$block['attrs']['className'] = implode( ' ', $classes );
+					$changed = true;
+				}
+			}
 			if ( ! empty( $block['attrs'] ) && is_array( $block['attrs'] ) ) {
 				$this->remap_attrs( $block['attrs'], $post_pairs, $term_pairs, $changed );
 			}
@@ -994,6 +1002,30 @@ class Content_Importer {
 	 * @return mixed|null
 	 */
 	private function rewrite_meta_value( string $key, $value, array $ref_map, string $site_url, array &$warnings ) {
+		if ( 'yay_swatches_product_attributes' === $key && is_array( $value ) ) {
+			$mapped = [];
+			foreach ( $value as $attribute => $data ) {
+				$local = $attribute;
+				if ( 0 === strpos( (string) $attribute, 'attribute:' ) ) {
+					$local = function_exists( 'wc_attribute_taxonomy_id_by_name' ) ? wc_attribute_taxonomy_id_by_name( substr( $attribute, 10 ) ) : 0;
+					if ( ! $local ) { $warnings[] = 'YaySwatches product attribute not found: ' . $attribute; continue; }
+				}
+				if ( is_array( $data ) && isset( $data['terms'] ) && is_array( $data['terms'] ) ) {
+					$terms = [];
+					foreach ( $data['terms'] as $term => $settings ) {
+						$target = $term;
+						if ( 0 === strpos( (string) $term, 'term:' ) ) {
+							$target = (int) ( $ref_map[ $term ] ?? 0 );
+							if ( ! $target ) { $warnings[] = 'YaySwatches product term not found: ' . $term; continue; }
+						}
+						$terms[ $target ] = $settings;
+					}
+					$data['terms'] = $terms;
+				}
+				$mapped[ $local ] = $data;
+			}
+			$value = $mapped;
+		}
 		if ( in_array( $key, self::META_POST_ID_KEYS, true ) ) {
 			$str = (string) $value;
 			if ( preg_match( '/^\{\{ref:post:(\d+)(:missing)?\}\}$/', $str, $m ) ) {

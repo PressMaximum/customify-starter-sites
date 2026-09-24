@@ -249,6 +249,7 @@ class Options_Importer {
 				$applied['customify_icons'] = $this->apply_customify_icons( $parsed, $warnings );
 				$applied['plugin_options'] = $this->apply_plugin_options( $parsed, $ref_map, $warnings );
 				$applied['woocommerce']    = $this->apply_woocommerce( $parsed, $ref_map, $warnings );
+				$applied['yayswatches'] = $this->apply_yayswatches( $parsed, $ref_map, $warnings );
 				$applied['fonts']          = $this->apply_fonts( $parsed, $ref_map, $warnings );
 			}
 			if ( $import_widgets ) {
@@ -689,6 +690,35 @@ class Options_Importer {
 	 * rejected so the importer's own state can't be corrupted by a
 	 * malicious manifest.
 	 */
+	/** Rebuild YaySwatches option names after WooCommerce attributes exist. */
+	private function apply_yayswatches( array $parsed, array $ref_map, array &$warnings ): bool {
+		$data = $parsed['yayswatches'] ?? null;
+		if ( ! is_array( $data ) ) { return false; }
+		foreach ( [ 'swatch', 'button', 'sold-out' ] as $group ) {
+			$key = 'yay-swatches-' . $group . '-customize-settings';
+			if ( isset( $data['settings'][ $key ] ) ) { update_option( $key, $this->resolve_refs( $data['settings'][ $key ], $ref_map, $warnings ), false ); }
+		}
+		foreach ( (array) ( $data['attributes'] ?? [] ) as $slug => $settings ) {
+			$id = function_exists( 'wc_attribute_taxonomy_id_by_name' ) ? wc_attribute_taxonomy_id_by_name( $slug ) : 0;
+			if ( ! $id ) { $warnings[] = 'YaySwatches attribute not found: ' . $slug; continue; }
+			foreach ( [ 'style', 'show-archive' ] as $field ) {
+				if ( isset( $settings[ $field ] ) ) { update_option( 'yay-swatches-attribute-' . $field . '-' . $id, $settings[ $field ], false ); }
+			}
+		}
+		foreach ( (array) ( $data['terms'] ?? [] ) as $ref => $settings ) {
+			// Only terms included in the imported content may receive settings.
+			$id = (int) ( $ref_map[ $ref ] ?? 0 );
+			if ( ! $id ) { continue; }
+			foreach ( [ 'swatch-color', 'show-hide-color', 'swatch-dual-color', 'swatch-image' ] as $field ) {
+				if ( ! array_key_exists( $field, $settings ) ) { continue; }
+				$value = $this->resolve_refs( $settings[ $field ], $ref_map, $warnings );
+				if ( 'swatch-image' === $field && is_numeric( $value ) ) { $value = (string) $value; }
+				update_option( 'yay-swatches-' . $field . '-' . $id, $value, false );
+			}
+		}
+		return true;
+	}
+
 	private function apply_plugin_options( array $parsed, array $ref_map, array &$warnings ): bool {
 		$plugin_options = $parsed['plugin_options'] ?? null;
 		if ( ! is_array( $plugin_options ) || empty( $plugin_options ) ) {

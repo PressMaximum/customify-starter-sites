@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: starter templates, website templates, demo import, block editor, gutenberg
 Requires at least: 7.0
 Tested up to: 7.1
-Stable tag: 1.0.8
+Stable tag: 1.0.9
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -139,6 +139,13 @@ Read the error shown in the setup panel. Check that your server can reach PressM
 Source code and build tools are available on [GitHub](https://github.com/PressMaximum/customify-starter-sites).
 
 == Changelog ==
+
+= 1.0.9 =
+* NEW: Import YaySwatches display settings, attribute styles and term swatches from PM Submitter exports, resolving attribute slugs and term/image references to destination IDs.
+* FIXED: Remap product-specific YaySwatches attribute and term keys while preserving custom product attributes; skip unresolved mappings with warnings.
+* FIXED: Invalidate WooCommerce's versioned attribute caches after creating global attributes, so swatch settings resolve correctly within the same import request.
+* FIXED: Preserve the product filter root class when importing newer WooCommerce block markup into older versions, restoring filter layout and hidden-state styling.
+* TESTED: Add Studio regression coverage for attribute cache invalidation and product filter markup compatibility.
 
 = 1.0.8 =
 * FIXED: Apply exported Customify Pro module switches before plugin activation and content import, so enabled modules register their post types and hooks in time.

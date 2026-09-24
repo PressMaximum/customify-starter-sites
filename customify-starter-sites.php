@@ -5,7 +5,7 @@ Plugin URI: https://pressmaximum.com/website-templates/
 Description: Browse website templates for the WordPress block editor, preview starter sites, choose colors and fonts, and import demo content with guided setup.
 Author: pressmaximum
 Author URI: https://pressmaximum.com/customify
-Version: 1.0.8
+Version: 1.0.9
 Requires at least: 7.0
 Requires PHP: 7.4
 Text Domain: customify-starter-sites
@@ -16,7 +16,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CUSTOMIFY_STARTER_SITES_VERSION', '1.0.8' );
+define( 'CUSTOMIFY_STARTER_SITES_VERSION', '1.0.9' );
 define( 'CUSTOMIFY_STARTER_SITES_FILE', __FILE__ );
 define( 'CUSTOMIFY_STARTER_SITES_URL', trailingslashit( plugins_url( '', CUSTOMIFY_STARTER_SITES_FILE ) ) );
 define( 'CUSTOMIFY_STARTER_SITES_PATH', trailingslashit( plugin_dir_path( CUSTOMIFY_STARTER_SITES_FILE ) ) );

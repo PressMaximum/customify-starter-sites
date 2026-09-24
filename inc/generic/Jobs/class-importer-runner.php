@@ -496,6 +496,10 @@ class Importer_Runner {
 			// request re-reads the new rows.
 			delete_transient( 'wc_attribute_taxonomies' );
 			wp_cache_delete( 'wc_attribute_taxonomies', 'woocommerce-attributes' );
+			// WC caches both the list and slug-to-ID map under a versioned prefix.
+			if ( class_exists( '\\WC_Cache_Helper' ) ) {
+				\WC_Cache_Helper::invalidate_cache_group( 'woocommerce-attributes' );
+			}
 		}
 		if ( $added > 0 || $registered > 0 ) {
 			$this->jobs->log( $job_id, sprintf( 'WooCommerce attributes: %d created, %d taxonomies registered.', $added, $registered ) );
