@@ -56,6 +56,13 @@ class Importer_Runner {
 	}
 
 	public function enqueue( string $job_id ): void {
+		// Disabled cron uses only the synchronous path. Scheduling as well would
+		// leave a second invocation behind for the same job.
+		if ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
+			$this->run( $job_id );
+			return;
+		}
+
 		// Schedule one tick in the past so spawn_cron() picks it up on
 		// the loopback hit fired next — without the `-1` the job is
 		// "not due yet" and the loopback request returns without doing
@@ -69,17 +76,29 @@ class Importer_Runner {
 			spawn_cron();
 		}
 
-		// Last-resort fallback for sites with DISABLE_WP_CRON — runs the
-		// import on this request thread. Blocking, but better than
-		// "job sits queued until someone manually triggers cron".
-		if ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
-			$this->run( $job_id );
-		}
 	}
 
 	public function run( string $job_id ): void {
 		$job = $this->jobs->get( $job_id );
-		if ( null === $job ) {
+		if ( null === $job || Job_Store::STATUS_QUEUED !== $job['status'] ) {
+			return;
+		}
+		if ( ! $this->jobs->claim_worker( $job_id ) ) {
+			// A duplicate callback for the owner is a no-op. A competing job
+			// cannot run safely and must not remain stuck in the queue.
+			$owner = (string) get_option( Job_Store::OPTION_WORKER, '' );
+			if ( '' !== $owner && $owner !== $job_id ) {
+				$this->jobs->fail( $job_id, 'Another import worker is already running. Retry after it finishes.' );
+			}
+			return;
+		}
+		// The first read may have raced with an earlier worker finishing. Drop
+		// request caches and recheck status after the atomic claim.
+		wp_cache_delete( Job_Store::TRANSIENT_PREFIX . $job_id, 'transient' );
+		wp_cache_delete( '_transient_' . Job_Store::TRANSIENT_PREFIX . $job_id, 'options' );
+		$job = $this->jobs->get( $job_id );
+		if ( null === $job || Job_Store::STATUS_QUEUED !== $job['status'] ) {
+			$this->jobs->release_worker( $job_id );
 			return;
 		}
 		$config = (array) ( $job['config'] ?? [] );
@@ -97,6 +116,7 @@ class Importer_Runner {
 		// job to `failed` here and surface the real fatal detail (naming the
 		// offending plugin/file) instead of an endless load.
 		register_shutdown_function( function () use ( $job_id ) {
+			$this->jobs->release_worker( $job_id );
 			$current = $this->jobs->get( $job_id );
 			if ( null === $current ) {
 				return;
@@ -119,7 +139,12 @@ class Importer_Runner {
 			) );
 		} );
 
+		$context = new Import_Context();
 		try {
+			if ( isset( $job['blog_id'] ) && (int) $job['blog_id'] !== get_current_blog_id() ) {
+				throw new \RuntimeException( 'Import job belongs to a different site.' );
+			}
+			$context->enter();
 			$fetcher   = new Asset_Fetcher( $this->client );
 			$installer = new Plugin_Installer();
 			$extractor = new Uploads_Extractor();
@@ -351,6 +376,12 @@ class Importer_Runner {
 		} catch ( \Throwable $e ) {
 			$this->jobs->fail( $job_id, $e->getMessage() );
 			( new Asset_Fetcher( $this->client ) )->cleanup( $job_id );
+		} finally {
+			try {
+				$context->close();
+			} finally {
+				$this->jobs->release_worker( $job_id );
+			}
 		}
 	}
 

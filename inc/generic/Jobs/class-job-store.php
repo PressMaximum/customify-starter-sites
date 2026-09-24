@@ -50,6 +50,7 @@ class Job_Store {
 			'id'        => $id,
 			'status'    => self::STATUS_QUEUED,
 			'config'    => $config,
+			'blog_id'   => get_current_blog_id(),
 			'progress'  => [
 				'phase'   => self::STATUS_QUEUED,
 				'percent' => 0,
@@ -70,6 +71,27 @@ class Job_Store {
 		set_transient( self::TRANSIENT_PREFIX . $id, $job, self::TTL );
 		update_option( self::OPTION_LATEST, $id, false );
 		return $id;
+	}
+
+	/** Site-wide atomic worker claim; a second request must never overlap imports. */
+	public const OPTION_WORKER = 'custstsi_import_worker';
+
+	public function claim_worker( string $id ): bool {
+		return add_option( self::OPTION_WORKER, $id, '', false );
+	}
+
+	public function release_worker( string $id ): void {
+		if ( (string) get_option( self::OPTION_WORKER, '' ) === $id ) {
+			delete_option( self::OPTION_WORKER );
+		}
+	}
+
+	public function has_active_job(): bool {
+		if ( '' !== (string) get_option( self::OPTION_WORKER, '' ) ) {
+			return true;
+		}
+		$latest = $this->latest();
+		return null !== $latest && ! in_array( $latest['status'], [ self::STATUS_COMPLETED, self::STATUS_FAILED, self::STATUS_CANCELLED ], true );
 	}
 
 	public function get( string $id ): ?array {

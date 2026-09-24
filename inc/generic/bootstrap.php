@@ -63,6 +63,7 @@ require_once __DIR__ . '/Steps/class-options-importer.php';
 // then runner (registers cron hook), then controller (registers REST
 // routes that drive the runner).
 require_once __DIR__ . '/Jobs/class-job-store.php';
+require_once __DIR__ . '/Jobs/class-import-context.php';
 require_once __DIR__ . '/Jobs/class-importer-runner.php';
 require_once __DIR__ . '/REST/class-job-controller.php';
 

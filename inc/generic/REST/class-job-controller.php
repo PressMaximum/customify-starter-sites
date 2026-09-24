@@ -222,19 +222,12 @@ class Job_Controller {
 		 */
 		$config = (array) apply_filters( 'custstsi_job_config', $config, $body );
 
-		// Wipe leftover jobs (stuck `queued` from prior loopback failures
-		// would otherwise sit alongside the new one and confuse polling).
-		$discarded = $this->jobs->discard_pending();
-
-		$job_id = $this->jobs->create( $config );
-		if ( ! empty( $discarded ) ) {
-			$this->jobs->log( $job_id, sprintf(
-				/* translators: 1: number, 2: comma-separated IDs */
-				__( 'Discarded %1$d pending job(s) before starting: %2$s', 'customify-starter-sites' ),
-				count( $discarded ),
-				implode( ', ', $discarded )
-			) );
+		// Cancelling a running worker does not stop its current content loop.
+		// Reject a second import instead of letting both insert the same posts.
+		if ( $this->jobs->has_active_job() ) {
+			return new \WP_Error( 'custstsi_import_busy', __( 'An import is already queued or running. Wait for it to finish or cancel it first.', 'customify-starter-sites' ), [ 'status' => 409 ] );
 		}
+		$job_id = $this->jobs->create( $config );
 		$this->runner->enqueue( $job_id );
 
 		return new \WP_REST_Response( [ 'job_id' => $job_id ], 202 );

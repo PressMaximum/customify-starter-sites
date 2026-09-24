@@ -3,7 +3,7 @@ Contributors: pressmaximum
 Tags: starter templates, website templates, demo import, block editor, gutenberg
 Requires at least: 7.0
 Tested up to: 7.1
-Stable tag: 1.0.6
+Stable tag: 1.0.7
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -139,6 +139,16 @@ Read the error shown in the setup panel. Check that your server can reach PressM
 Source code and build tools are available on [GitHub](https://github.com/PressMaximum/customify-starter-sites).
 
 == Changelog ==
+
+= 1.0.7 =
+* FIXED: Background imports now use process-local import permissions without changing user roles, preserving HTML, SVG and block CSS and restoring permissions and filters when the worker finishes or fails.
+* FIXED: Additional CSS child selectors could be HTML-encoded during import, breaking header alignment and other layouts. CSS now retains its original syntax.
+* FIXED: Customify Font Awesome settings are restored from new exports or inferred from typed icons in older bundles, so TikTok and other v6 icons display alongside legacy icons.
+* FIXED: Overlapping import workers could create duplicate pages and posts. Imports now acquire a site-wide worker lock, and a second import request is rejected while another import is queued or running.
+* FIXED: Repeated callbacks could restart completed, failed or cancelled imports. These callbacks now leave the existing content unchanged, and sites with disabled WP-Cron use only the synchronous import path.
+* FIXED: Draft content with a zero GMT date could fail to import with an invalid-date error.
+* FIXED: Re-importing non-public Customify mega contents could create duplicates because the existing-content lookup excluded non-searchable post types. Source-reference lookups now include all registered post types.
+* TESTED: Added worker regression checks and verified two complete LILT imports retain 11 imported pages and 3 imported posts without duplicate source references.
 
 = 1.0.6 =
 * FIXED: Some templates lost their layout after import — the front page showed the blog instead of the home page — when the template has no separate blog page. The posts-page setting is now cleared so the home page shows correctly.

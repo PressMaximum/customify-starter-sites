@@ -75,15 +75,8 @@ class Content_Importer {
 			'menu_items'  => 0,
 		];
 
-		// The import runs in a cron/REST worker with no logged-in user, so
-		// current_user_can('unfiltered_html') is false. On save, WordPress core's
-		// `wp_strip_custom_css_from_blocks` (a `content_save_pre` filter) then
-		// strips a block's custom CSS — e.g. a Blocksify container's
-		// `"style":{"css":"margin: 0 auto;"}` that centres the "spare knee patch"
-		// block — so the layout breaks. The template content is trusted (an admin
-		// started this job against our own catalog), so suspend that filter for the
-		// duration and always restore it in the finally, even on a throw. Its
-		// priority (8) is captured so it goes back exactly where it was.
+		// The worker context already preserves block CSS. Keep this scoped
+		// fallback for callers that invoke the content step directly.
 		$strip_css_prio = has_filter( 'content_save_pre', 'wp_strip_custom_css_from_blocks' );
 		if ( false !== $strip_css_prio ) {
 			remove_filter( 'content_save_pre', 'wp_strip_custom_css_from_blocks', $strip_css_prio );
@@ -531,7 +524,9 @@ class Content_Importer {
 			'menu_order'   => (int) ( $post['menu_order'] ?? 0 ),
 			'post_parent'  => $post_parent,
 		];
-		if ( ! empty( $post['post_date_gmt'] ) ) {
+		// Drafts commonly carry WordPress's zero GMT date. Let core supply the
+		// destination date instead of converting it into an invalid local date.
+		if ( ! empty( $post['post_date_gmt'] ) && '0000-00-00 00:00:00' !== $post['post_date_gmt'] ) {
 			$postarr['post_date_gmt'] = (string) $post['post_date_gmt'];
 			$postarr['post_date']     = get_date_from_gmt( (string) $post['post_date_gmt'] );
 		}
@@ -1035,7 +1030,8 @@ class Content_Importer {
 			return;
 		}
 		$ids = get_posts( [
-			'post_type'      => 'any',
+			// 'any' excludes non-searchable CPTs such as customify_mega.
+			'post_type'      => array_values( get_post_types() ),
 			'post_status'    => 'any',
 			'posts_per_page' => -1,
 			'fields'         => 'ids',
@@ -1069,7 +1065,8 @@ class Content_Importer {
 
 	private function find_by_source_ref( string $ref ): int {
 		$ids = get_posts( [
-			'post_type'      => 'any',
+			// 'any' excludes non-searchable CPTs such as customify_mega.
+			'post_type'      => array_values( get_post_types() ),
 			'post_status'    => 'any',
 			'posts_per_page' => 1,
 			'fields'         => 'ids',

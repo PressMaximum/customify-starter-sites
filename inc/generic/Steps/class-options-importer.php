@@ -246,6 +246,7 @@ class Options_Importer {
 				$applied['theme_mods']     = $this->apply_theme_mods( $parsed, $ref_map, $warnings );
 				$applied['customizer']     = $this->apply_customizer( $parsed, $ref_map, $warnings );
 				$applied['custom_css']     = $this->apply_custom_css( $parsed, $ref_map, $warnings );
+				$applied['customify_icons'] = $this->apply_customify_icons( $parsed, $warnings );
 				$applied['plugin_options'] = $this->apply_plugin_options( $parsed, $ref_map, $warnings );
 				$applied['woocommerce']    = $this->apply_woocommerce( $parsed, $ref_map, $warnings );
 				$applied['fonts']          = $this->apply_fonts( $parsed, $ref_map, $warnings );
@@ -387,6 +388,46 @@ class Options_Importer {
 		return $set > 0;
 	}
 
+	/** Restore the icon library, including legacy bundles with typed icons only. */
+	private function apply_customify_icons( array $parsed, array &$warnings ): bool {
+		if ( 'customify' !== get_template() || 'customify' !== ( $parsed['theme']['template'] ?? '' ) ) {
+			return false;
+		}
+		$version = $parsed['theme']['customify']['font_awesome_version'] ?? null;
+		if ( null !== $version && ! in_array( $version, [ 'v4', 'v6', 'v456' ], true ) ) {
+			$warnings[] = 'Unsupported Customify Font Awesome version.';
+			return false;
+		}
+		if ( null === $version ) {
+			// Older exporters omitted the option. Infer only from actual icon
+			// descriptors, using the v4 shim so mixed legacy icons still work.
+			$has_v6 = static function ( $value ) use ( &$has_v6 ): bool {
+				if ( is_string( $value ) ) {
+					$decoded = json_decode( urldecode( $value ), true );
+					return is_array( $decoded ) && $has_v6( $decoded );
+				}
+				if ( ! is_array( $value ) ) {
+					return false;
+				}
+				if ( isset( $value['icon'], $value['type'] ) && in_array( $value['type'], [ 'font-awesome-v6', 'font-awesome-v456' ], true ) ) {
+					return true;
+				}
+				foreach ( $value as $child ) {
+					if ( $has_v6( $child ) ) {
+						return true;
+					}
+				}
+				return false;
+			};
+			if ( ! $has_v6( $parsed['theme']['mods'] ?? [] ) ) {
+				return false;
+			}
+			$version = 'v456';
+		}
+		update_option( 'customify_fa_ver', $version );
+		return true;
+	}
+
 	/**
 	 * Additional CSS (Appearance → Customize → Additional CSS). The exporter
 	 * ships the raw CSS under `theme.custom_css`; write it to the active theme's
@@ -402,8 +443,37 @@ class Options_Importer {
 		if ( ! function_exists( 'wp_update_custom_css_post' ) ) {
 			require_once ABSPATH . WPINC . '/theme.php';
 		}
-		wp_update_custom_css_post( $css );
-		return true;
+		// Cron workers have no unfiltered_html capability. HTML KSES encodes
+		// CSS combinators ( > becomes &gt; ). Preserve CSS only for this theme's
+		// custom_css write; leave HTML filtering on every other post intact.
+		$stylesheet = get_stylesheet();
+		$preserve_css = static function ( $data, $postarr, $raw ) use ( $stylesheet ) {
+			if ( 'custom_css' !== ( $data['post_type'] ?? '' ) || sanitize_title( $stylesheet ) !== ( $data['post_name'] ?? '' ) ) {
+				return $data;
+			}
+			$raw_css = wp_unslash( $raw['post_content'] ?? '' );
+			// CSS renders inside <style>. Reject markup and incomplete tags;
+			// never decode entities or permit a stylesheet to escape that element.
+			if ( preg_match( '/<[^>]*>|<[^>]*$/s', $raw_css ) ) {
+				throw new \RuntimeException( 'Imported custom CSS contains HTML markup.' );
+			}
+			$data['post_content'] = wp_slash( $raw_css );
+			return $data;
+		};
+		add_filter( 'wp_insert_post_data', $preserve_css, 10, 3 );
+		try {
+			$result = wp_update_custom_css_post( $css );
+			if ( is_wp_error( $result ) ) {
+				$warnings[] = 'Custom CSS was not saved: ' . $result->get_error_message();
+				return false;
+			}
+			return true;
+		} catch ( \Throwable $error ) {
+			$warnings[] = 'Custom CSS was not saved: ' . $error->getMessage();
+			return false;
+		} finally {
+			remove_filter( 'wp_insert_post_data', $preserve_css, 10 );
+		}
 	}
 
 	/**
